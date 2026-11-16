@@ -1,0 +1,7 @@
+sherpa-onnx
+sounddevice
+numpy
+openai
+python-dotenv
+psutil
+scipy
