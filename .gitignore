@@ -17,6 +17,7 @@ dist/
 release/*
 !release/BUILD_REPORT.md
 !release/SHA256SUMS.txt
+!release/assets-manifest.json
 .build_tools/
 packaging-qa/
 logic_graphs/

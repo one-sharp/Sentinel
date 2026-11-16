@@ -1,0 +1,1252 @@
+{
+  "schema": 1,
+  "repo": "one-sharp/Sentinel",
+  "tag": "v0.3.1-logic",
+  "files": [
+    {
+      "name": "Sentinel-dev-wheels-py312-win64.zip",
+      "size": 91172322,
+      "parts": [
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part001",
+          "size": 8388608,
+          "sha256": "0d85618010546d79c552b1f44c2b6afb4c5db2f2af05e738d1ade79398b0919e"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part002",
+          "size": 8388608,
+          "sha256": "b20864bbf23bb2b64bfc725deb9be329f5698fa0a547dd3980346b2a44d51a33"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part003",
+          "size": 8388608,
+          "sha256": "68471d0f2e0e1861d0f79d30b7389bd6ffbe0b0158181bb70932f887abc44d56"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part004",
+          "size": 8388608,
+          "sha256": "66e1a42499a1d27534ac51ff9aae53713691fdd86a8262183b1b5d32c09fc432"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part005",
+          "size": 8388608,
+          "sha256": "9d562ce317dfe94d5c994b6d8a8042eab55261041ed16a45d26a2d331401c5fc"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part006",
+          "size": 8388608,
+          "sha256": "d65fede81a8a7b34e923d9a098a7f40fb7add629ca971c22bfeb21e12b8cc5b1"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part007",
+          "size": 8388608,
+          "sha256": "def96d2225c8d5e88e856968e1652af340cada1c4f504fc4723f58e09d1d13a4"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part008",
+          "size": 8388608,
+          "sha256": "7823f6d7a2435e048656405bf960a4fedbf0769364a3fcef295ad8f634a768ef"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part009",
+          "size": 8388608,
+          "sha256": "a7c0ad85feddee20d51a68fea03dc40278f8cc96dd292700185f9f6c9ff046a8"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part010",
+          "size": 8388608,
+          "sha256": "2137cc59abc65d95ae8eed16b8ad5a35aaff290f52dd5ebe64e016ee2a5b276f"
+        },
+        {
+          "name": "Sentinel-dev-wheels-py312-win64.zip.part011",
+          "size": 7286242,
+          "sha256": "651883295188a0b3ce084c328bd0747b69ebbd5287bfff143435bf65d86da7bb"
+        }
+      ],
+      "sha256": "5935eee1fd611cefbdad09f4d04ca653094857269a43f60a45176c61fda41d1a",
+      "delivery": "file"
+    },
+    {
+      "name": "Sentinel-models-v0.3.1.zip",
+      "size": 245600033,
+      "parts": [
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part001",
+          "size": 8388608,
+          "sha256": "6f4a81130b200cc22e03e36bc09534bd6f4cf0f3c8d36d22d670c774cdec5db4"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part002",
+          "size": 8388608,
+          "sha256": "be22ad6fe5f6a6915cc5d748d3dd43bc5479b0138f35bb51502c3740310bc3c9"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part003",
+          "size": 8388608,
+          "sha256": "857e098cd002c17703b2314350d78db2485fe9b04f12b9a1ffc893f22ecd7187"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part004",
+          "size": 8388608,
+          "sha256": "caf611d66d45661c87beea2f59564dd0fd00dea1fcc8c70f525c4c1b047dd53f"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part005",
+          "size": 8388608,
+          "sha256": "1393e334843bbacd5c595e6d6e7e1a0887cd1ab2774b5e386bbac1530d0199a0"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part006",
+          "size": 8388608,
+          "sha256": "f908352cca8d87faa2e1dd6c9fa5ffcb91ec407715bf4d38c6e28dba94386ca6"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part007",
+          "size": 8388608,
+          "sha256": "8c5c28972b29ab1de5749dbc63fbf49a5ce3234dc491e57424a9ce774c856e7d"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part008",
+          "size": 8388608,
+          "sha256": "45a034c3b41c163928e6468a7deca585211231026476de8a49faf85300349f77"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part009",
+          "size": 8388608,
+          "sha256": "ce2187a14533a20b5dfbc7e9f5f26005ffcc786768a00ae43d37953f68ced37b"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part010",
+          "size": 8388608,
+          "sha256": "d1dc330c24714e3736f66f84bbe30d640f8820a9861b2527560526e04e466257"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part011",
+          "size": 8388608,
+          "sha256": "bba6326f458ee9f2d05013c5fe99977d9dd0f70a90137235757deca855ec8d73"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part012",
+          "size": 8388608,
+          "sha256": "d113f6c14d6be6e9f27b3b16bc95b441ea9031d2434afc1e8c13757ffd7f8bd8"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part013",
+          "size": 8388608,
+          "sha256": "86634e5c205d9b4a2c7c69abd5c04d286f0daefabdea008fc1918f300c047e89"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part014",
+          "size": 8388608,
+          "sha256": "833c68a71e0e6d423256463ff73b14c63e67dd1a31e1464247dfecb3049bdfcb"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part015",
+          "size": 8388608,
+          "sha256": "b2e96dbe2ba6c1d454361c4e9e76143cababaf7a454ee0716f7efc888e7de25d"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part016",
+          "size": 8388608,
+          "sha256": "f47b4f3a176d9471560cdd1522897cc0c9178cecf02516713e2826d692735faf"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part017",
+          "size": 8388608,
+          "sha256": "7a9dffab33502b5ed905346eb89368ba4c11234b57c51b3ed4a6a4e78e15c91a"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part018",
+          "size": 8388608,
+          "sha256": "22f8ae1da2f7c0f63efaf54ee941110f294157868d725972a2136d9168ab709e"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part019",
+          "size": 8388608,
+          "sha256": "3fc6c3f95b1833c19e064bd375367bfed7852da3389737082e7df29ded16336d"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part020",
+          "size": 8388608,
+          "sha256": "0b5c8a1ceba62a8c082cc9206a4c96186f33a6c276bcd254682ffbcdb0cfa641"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part021",
+          "size": 8388608,
+          "sha256": "0b2386145732d7cbe53bbbc6e84ba71de2bec7842a4bc581097aca0ba412be0f"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part022",
+          "size": 8388608,
+          "sha256": "0777e24e893453f9d7d4bb6ec85f90fac23669c620632a8302e6ee50f3ea7ab1"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part023",
+          "size": 8388608,
+          "sha256": "48c48be10e9ae770882fa9f6eafd9f9efc35858d2e048d4f7258fa1bdf89bbcc"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part024",
+          "size": 8388608,
+          "sha256": "6269d4fea8d274c83051035eae0e893a606ae97de34f1506fd084339243d039c"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part025",
+          "size": 8388608,
+          "sha256": "94f7d9c4c71be8001869cdf59838dfcbd6620935a886e19088af0836a893f3f3"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part026",
+          "size": 8388608,
+          "sha256": "01161363d724878d59632318238be4609955789009087aa43bf04cd4eba80a3a"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part027",
+          "size": 8388608,
+          "sha256": "1ebd7c197b3b6a07ed3b4281d17d22ab3b00dd8aa439841e3c82d61106db949c"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part028",
+          "size": 8388608,
+          "sha256": "9edea3f4f0c204483b2dab5db48492137e796a0f99bbcea09962a3c09c44a9c5"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part029",
+          "size": 8388608,
+          "sha256": "dcb9c5f20f7fdc21384347f8d8eb5b41246d7420490ef16e62911e33049dc6b0"
+        },
+        {
+          "name": "Sentinel-models-v0.3.1.zip.part030",
+          "size": 2330401,
+          "sha256": "2f14c93e5353f55da5ff86361d4e4cea7dd3b16552fc27ed9ec9250db4dad098"
+        }
+      ],
+      "sha256": "d6a476982a6d7fe17e21fe5d87cf9f1984508229808f38d00059f536f59a5db3",
+      "delivery": "parts"
+    },
+    {
+      "name": "Sentinel-Setup.exe",
+      "size": 300684392,
+      "parts": [
+        {
+          "name": "Sentinel-Setup.exe.part001",
+          "size": 8388608,
+          "sha256": "d763e0891eec68f60f702b52ad4088127f58bef0b0d638d7f2b7a1ba1c0fe86c"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part002",
+          "size": 8388608,
+          "sha256": "766407b69190d3275a44becd17c547f4e35f3d31edc5a844878b9a97037e096e"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part003",
+          "size": 8388608,
+          "sha256": "3c479f19c6d52ebd70df9ec69ade13d5b5c8c391dc7a44b5df591679ffa348fb"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part004",
+          "size": 8388608,
+          "sha256": "0a7f94117444ad0d526a96028648d99050bf964d628668c54d7590b0a29214cc"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part005",
+          "size": 8388608,
+          "sha256": "32957acb1955a55368dea0945ac83b2f326d494bae6ec9d8200c429b760eab59"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part006",
+          "size": 8388608,
+          "sha256": "8a2c7d616ca1e9776879ecaffcfb5c5f94df17b9fc9a362db40dac057dc90d7c"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part007",
+          "size": 8388608,
+          "sha256": "c44ab2705a47508c90608183a0d94a3ae878896832da482b1c358e97d7eb8dce"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part008",
+          "size": 8388608,
+          "sha256": "8f49f1dcd6d06a9dc277b5fee29ae008da6a802732f165463b864262b076effe"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part009",
+          "size": 8388608,
+          "sha256": "37d86a0241e0620214c14bd02a3f7633ba7737d194c03e43f45f27670e841d39"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part010",
+          "size": 8388608,
+          "sha256": "e4ad7e228ea995b1d197970b153b4b9794b15b24e9c7858bec932ac99f71c6ec"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part011",
+          "size": 8388608,
+          "sha256": "19bec70ddb0304b51195402cbf92bb762a608fc8933cfea5201261be32961e15"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part012",
+          "size": 8388608,
+          "sha256": "3247206133c42e1626ce35863a4697fa201049f8438c48e3f2e6b13182b8352a"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part013",
+          "size": 8388608,
+          "sha256": "2e6d3244c6bea46ce2ed8908609efbefbc98e6a45f938719a6a2580c9d84e457"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part014",
+          "size": 8388608,
+          "sha256": "ef3a21de42bd4a4389ece64e41b0a5948d1b7a279c24c51bcc1c23f5ac00bceb"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part015",
+          "size": 8388608,
+          "sha256": "8e6d71a97f6a796e926e4d98e40797678b1cad9fa8e5facfa77a3b4ff082e371"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part016",
+          "size": 8388608,
+          "sha256": "2cba2d23663218336b79e92ca9c0d559bece85acb387142a768ec785b16d7af8"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part017",
+          "size": 8388608,
+          "sha256": "2727516fa2284904aed819bd0af24c3c96c6c692a37288b4efcce2fd05e3c7d3"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part018",
+          "size": 8388608,
+          "sha256": "2cca8f141a8c1e8d71a79310176b04e29c9c51c21fc80c50fb91c649fc02d418"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part019",
+          "size": 8388608,
+          "sha256": "68e6620810305cf9ce5c85ab504895d2c4828c6f2d45e850f12470adf8bd04ba"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part020",
+          "size": 8388608,
+          "sha256": "87e2f1fa1842cd7fa4b0f9b1814b15fa0f1b17292f3a855aac8e440725638b1f"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part021",
+          "size": 8388608,
+          "sha256": "8f3fa3dbb77fb199da1527fa39bfd68ee7ee79c2c6bdba2a60d54ffffda6ff4c"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part022",
+          "size": 8388608,
+          "sha256": "868bf24da321b21fc8fe8da67a7c4ef061f220a31d6ff0fc3f28e0b9f7a5c074"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part023",
+          "size": 8388608,
+          "sha256": "ca796ae95027f3c00daa866bbfaba6e5ca60abe366797f2c90248b016b3be16a"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part024",
+          "size": 8388608,
+          "sha256": "1982354b9d9dbcdbfd8bfba314a1e57d7a664b832b19eb777d40ab060eda247c"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part025",
+          "size": 8388608,
+          "sha256": "c6750c6cc3a7a8ef848ced852a00c7cba8ccea66066bad0e77fe9075120bb1ae"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part026",
+          "size": 8388608,
+          "sha256": "e994343c7eb4277fad62479f857566ea23edb699ecc58f74d71df316d43c5b87"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part027",
+          "size": 8388608,
+          "sha256": "27b6b290d5f8ed55da42cb412ecad66fb4d486b4d9e1f3891f2b3f5bdac4a16c"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part028",
+          "size": 8388608,
+          "sha256": "6077fd32f1d9bbb4440985731b17283ddc7b311569966b8c98e68b5fcb10f562"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part029",
+          "size": 8388608,
+          "sha256": "121eab323e4339fc9e49068b33b98d21bcfc6f4ac514f1ce1e3b43be5254a86e"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part030",
+          "size": 8388608,
+          "sha256": "ab6020783e41d2199fce55ae5aeb1efe281be31d0aa8cbe4bd2bb00c2e088fef"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part031",
+          "size": 8388608,
+          "sha256": "4865913f508287563e481342486226328087ca528f470f5774bf5d5420515b33"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part032",
+          "size": 8388608,
+          "sha256": "45a1005812d7fd64a4985117bdacb405ffef18995ea465b9f4b811e8bd898b55"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part033",
+          "size": 8388608,
+          "sha256": "cb8d9c35cdaa37afc55ddf68753a18de913be75e548c0452f761ac6b52daa106"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part034",
+          "size": 8388608,
+          "sha256": "1ccf9afa00c4e45660f7b34b93a14da9601ba7ba2187d400ad6c50d7133a449d"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part035",
+          "size": 8388608,
+          "sha256": "31272e6315158c8d1ed3eebb5c51afc940d335f2aa6c88d86b26744a2325285e"
+        },
+        {
+          "name": "Sentinel-Setup.exe.part036",
+          "size": 7083112,
+          "sha256": "fb800f38fbd274f616ec694fb084010989fd49a22461314dc321e1e536a6c2c5"
+        }
+      ],
+      "sha256": "393cbbc5076ef100b8d5e2da41c5a0b70e2a6e36a42f02ad0aa62970d95381e4",
+      "delivery": "parts"
+    },
+    {
+      "name": "Sentinel-portable-v0.3.1.zip",
+      "size": 326549893,
+      "parts": [
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part001",
+          "size": 8388608,
+          "sha256": "40bd58617298d8886e48a23e232435326f27090c63de29d4fe3004c4c1d9293b"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part002",
+          "size": 8388608,
+          "sha256": "e78db42bced447f791ac3125b843b385e478e820b1468dcef8b461d398dbd9df"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part003",
+          "size": 8388608,
+          "sha256": "015d9aefd733ce6fa68065c7c25dda606411d8b4235282769a26a003f8c13dd1"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part004",
+          "size": 8388608,
+          "sha256": "ba7d92e237f44608d1c536acb219ffc581d7a2bb6907362e9f1a84ce5c78ffb4"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part005",
+          "size": 8388608,
+          "sha256": "627bc998de7cce6b35018353e23ecf9442b5250f49305470a679d6016ea58ddf"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part006",
+          "size": 8388608,
+          "sha256": "05745c7f2ab64419bc284e1f20a62f07008967c63eb03fa291d4af0bc5a8335b"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part007",
+          "size": 8388608,
+          "sha256": "90228c705c01a760b28881551fa368fcc39e50afe68db8aa8673ffe74e6125b3"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part008",
+          "size": 8388608,
+          "sha256": "cf0023408db7438e44db599d6cbc75259f6cb12bf29a5a7846c8ec2f9872cfad"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part009",
+          "size": 8388608,
+          "sha256": "4f1a47412d5c429914e950b83b25896cc643c9b656a196ee9a1cac64f1f58d98"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part010",
+          "size": 8388608,
+          "sha256": "08324632f86009bd3ddcffd7fea8c4af3f46f463d5f1b40ccd2925e2fbd406d2"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part011",
+          "size": 8388608,
+          "sha256": "1a1211e84f16ab20eb7b1592556ab08262f1b13ad6daf0001d9ce9f74782ad07"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part012",
+          "size": 8388608,
+          "sha256": "e6eabc3722a77a53c4de15e2684e9f1ac87de744dfecd1600f9926a52941748b"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part013",
+          "size": 8388608,
+          "sha256": "7f907f367686cf9fe195622d775a97f0ba809fdf9d2c83bb3ee9e49a28e9c868"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part014",
+          "size": 8388608,
+          "sha256": "afb4e78bad14805a983066d6aacbdfbda555fbf8cb8b26e022358bb2941db03e"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part015",
+          "size": 8388608,
+          "sha256": "fa8306d98bb4612f07a01f005f0b1bbe50b019554e0f0541e5f1774e64f33b07"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part016",
+          "size": 8388608,
+          "sha256": "18aebf9a600225a8e138d8daa44117e958e12ad8e3c05cecc37f36bb78bbc4f3"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part017",
+          "size": 8388608,
+          "sha256": "c6d5f4f20ceef6ac22cbb4299cdae2c6c48bff5389a97adf97290e3d1f05ab13"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part018",
+          "size": 8388608,
+          "sha256": "3cae6726c20bd0de09c644738c6794e92ceb299835a9f633d0a4ea4e5edea303"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part019",
+          "size": 8388608,
+          "sha256": "33b33299f5534fc9569836b015c955b419337d5767687dca48fce8432db3ceee"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part020",
+          "size": 8388608,
+          "sha256": "b0c2931fa5976f0f42d65ec42332b15ec767a9faa568b236586df1c4e1ea6f74"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part021",
+          "size": 8388608,
+          "sha256": "e4958bea759d456495124243fdd3a0b9b8ff16c2c98b53c967204aa88e949a0a"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part022",
+          "size": 8388608,
+          "sha256": "4574c4e7156f7300581f879f016014b8b684abdc274eb221169972ff8c9f102f"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part023",
+          "size": 8388608,
+          "sha256": "e5b2fd9de215786fffa306f4e92ebf7e4b96ac3f3075b32a30df6b0436b0f3f6"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part024",
+          "size": 8388608,
+          "sha256": "b5748a65cd393eec07f097b70b11f7989b0ae56d75e01a9fcecc48e66ad866e8"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part025",
+          "size": 8388608,
+          "sha256": "8bdc2a74253fefbbc36b5de163b7950dc1b87ff2d60145452d1a30fdc52e51fa"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part026",
+          "size": 8388608,
+          "sha256": "1e6fadcc4b8233ecb71dfa6926534004574e643f8afa47a739af01be95c78778"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part027",
+          "size": 8388608,
+          "sha256": "6dce8f37cf8ed8af2328bac258032bc163d60c4780757bf42e0eddd927f04cbf"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part028",
+          "size": 8388608,
+          "sha256": "62ae59bf1b6ecea4a1526d1d0a191b405258d1e957e5297e8353dd6b96e123c2"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part029",
+          "size": 8388608,
+          "sha256": "9b51ad14ee566eca44c419e18b7377b7afb1cf5eaad8cc4d866cf7cc9df42fe7"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part030",
+          "size": 8388608,
+          "sha256": "f13aff4c1dda7e8b8256e37d451df5b2dc85d14f47d43aa550862c8b4b0d277b"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part031",
+          "size": 8388608,
+          "sha256": "0af8da93aa32fe50e052b0d0f46384dde47c59fb30790b85cf3aa6bd738074bb"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part032",
+          "size": 8388608,
+          "sha256": "569a36765b9595a5f8db26b1f5056bfba9f204a365e8c41eabe21b995770d31d"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part033",
+          "size": 8388608,
+          "sha256": "e3880a46f4993f0887b220a19cdf288f21b1d6ef24f8062044332f93ddb5e342"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part034",
+          "size": 8388608,
+          "sha256": "923de0c60639be46bc85c0332b7d83eed20503cdc4ee4f9d492fb0d154a24dc8"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part035",
+          "size": 8388608,
+          "sha256": "50d3dc1ea64d14a2e109a14160af132ac4ff3b57e6120322305c6ddea7f7796c"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part036",
+          "size": 8388608,
+          "sha256": "4f0034779ef8dc6c77f2187fcaa5eaef0779d42cefd11d4c17847ba8eca31dd1"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part037",
+          "size": 8388608,
+          "sha256": "8c6adb95d4b765a5b0f5a7a02c55cc25c4ffa4b544fcfc0d97d1692c5733a110"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part038",
+          "size": 8388608,
+          "sha256": "bd78c1a987d4dbde06c698832eae2a83a6f29ba6ace66a0cd48254f976fa17b1"
+        },
+        {
+          "name": "Sentinel-portable-v0.3.1.zip.part039",
+          "size": 7782789,
+          "sha256": "b9130ea4eb49c1b668e626c0417b4bc7b7a5d6f4605323741e803c340322725e"
+        }
+      ],
+      "sha256": "6f160fed0308639b4d41ee0d3c7906997c23d2379a57fa3ce4689988b41b5b48",
+      "delivery": "parts"
+    },
+    {
+      "name": "model.tar.bz2",
+      "size": 1047319737,
+      "parts": [
+        {
+          "name": "model.tar.bz2.part001",
+          "size": 8388608,
+          "sha256": "02943de977e5f500d22db8b8254695818fafe4a3d5a36ed92c5f518d8ff28ee8"
+        },
+        {
+          "name": "model.tar.bz2.part002",
+          "size": 8388608,
+          "sha256": "96f88af26cdac4c0a73be430f7860eaceb59917ec6f6d4f13f529a5d336a234e"
+        },
+        {
+          "name": "model.tar.bz2.part003",
+          "size": 8388608,
+          "sha256": "1a94fbe777e3846d703b05c6cbc299d3a24669f00e919a1abde3f7b5de725126"
+        },
+        {
+          "name": "model.tar.bz2.part004",
+          "size": 8388608,
+          "sha256": "cf9cb89d70829f110ee31a76fd05ea13250933e698e7aebbfa3e55f92ca62326"
+        },
+        {
+          "name": "model.tar.bz2.part005",
+          "size": 8388608,
+          "sha256": "8ec6e6bc7a56f1be4e85ff5781bf6325c2b3167731f65c031fa0ea2cc2b21f5f"
+        },
+        {
+          "name": "model.tar.bz2.part006",
+          "size": 8388608,
+          "sha256": "6d6cef214ad75865edf1e6531e122bd55c7a1e2ba204787d033ff9521a2616fb"
+        },
+        {
+          "name": "model.tar.bz2.part007",
+          "size": 8388608,
+          "sha256": "fddf004fe409311d0bce40347cffb60813f9f18b05200ab51009bcfbbd701125"
+        },
+        {
+          "name": "model.tar.bz2.part008",
+          "size": 8388608,
+          "sha256": "4beae2afbfdb75257d7a20b93e4191fb184662affd442b8e400a2d24f24aede1"
+        },
+        {
+          "name": "model.tar.bz2.part009",
+          "size": 8388608,
+          "sha256": "041fe64d372eb621fb91b0d201a5bc0cdd6cdb925b97e3a46eb7214cb648c5f6"
+        },
+        {
+          "name": "model.tar.bz2.part010",
+          "size": 8388608,
+          "sha256": "2c24d25e89d387974506bd866066a4c13dc9438ff8320b64983f071658c8c255"
+        },
+        {
+          "name": "model.tar.bz2.part011",
+          "size": 8388608,
+          "sha256": "f32d33726e299ed2d6d9770cd957bdee2641b371366d8fcad3523ede2081f2a0"
+        },
+        {
+          "name": "model.tar.bz2.part012",
+          "size": 8388608,
+          "sha256": "f4d24cb4aacb19c8bd81da04e5de5b922d5e2ee655659e5eadb6e100f490e741"
+        },
+        {
+          "name": "model.tar.bz2.part013",
+          "size": 8388608,
+          "sha256": "d42b8fcf025bf57fc4fd6a3357e9053f66b285d7e957bee4edbf14e56f682cc4"
+        },
+        {
+          "name": "model.tar.bz2.part014",
+          "size": 8388608,
+          "sha256": "8fdd2be52fdbe0e1d2fe7728bb8e583494e2b386512f4092c4d6f7bddc29bfbf"
+        },
+        {
+          "name": "model.tar.bz2.part015",
+          "size": 8388608,
+          "sha256": "5cbe87cb6f99d13085b28ce343f4022d0b3a3798246bf5b132f9b7af92adab07"
+        },
+        {
+          "name": "model.tar.bz2.part016",
+          "size": 8388608,
+          "sha256": "fcfaee8b3abaf9575fc9e46a2f85ab47d3ad4145c7c89b513fa74b2a4c5d04e9"
+        },
+        {
+          "name": "model.tar.bz2.part017",
+          "size": 8388608,
+          "sha256": "ae1b0d7713eef3a101c253b0bc458d485516bcb60994bd77a0ad6b35b40b798a"
+        },
+        {
+          "name": "model.tar.bz2.part018",
+          "size": 8388608,
+          "sha256": "aca92486e7e37a2f14a87d74c3d8b136709b8c3733ab1636dd959525ae1b1fcb"
+        },
+        {
+          "name": "model.tar.bz2.part019",
+          "size": 8388608,
+          "sha256": "533ac2ffc0b646c33e82da1165cf92c246288cfb8b5c97a71f19831e1c6dd88b"
+        },
+        {
+          "name": "model.tar.bz2.part020",
+          "size": 8388608,
+          "sha256": "9faa74e8e8ece3fe35f61dda0c5252a0945e6b314f2f514b4e0a64531f58e8ef"
+        },
+        {
+          "name": "model.tar.bz2.part021",
+          "size": 8388608,
+          "sha256": "6e6f3396e33ac549a0bb245c36caca6f7a17605b2171b1df31bc7540985c24d2"
+        },
+        {
+          "name": "model.tar.bz2.part022",
+          "size": 8388608,
+          "sha256": "2386d1ea61156d732b43f1227c9535985df6c3e36bf51c854a08501781da2f55"
+        },
+        {
+          "name": "model.tar.bz2.part023",
+          "size": 8388608,
+          "sha256": "3483fbb93ea202f319354c0fcd5fb1208474e9afa864760e4bf6c4bf3c2054fd"
+        },
+        {
+          "name": "model.tar.bz2.part024",
+          "size": 8388608,
+          "sha256": "a9bcc68016f70528ce9008135be184632a453ab81c4f6ac432a258d25ceb396e"
+        },
+        {
+          "name": "model.tar.bz2.part025",
+          "size": 8388608,
+          "sha256": "cd6ed7fbefcd8431ed8d265db4310746546998f72361e624bd2c64182f1f4bfe"
+        },
+        {
+          "name": "model.tar.bz2.part026",
+          "size": 8388608,
+          "sha256": "fb37221aa77d7960abd8e6ed737d6eb936bb2e4fb3d3b16340ce687bc552b3b5"
+        },
+        {
+          "name": "model.tar.bz2.part027",
+          "size": 8388608,
+          "sha256": "d2297372007e59e5c35b038fe8305ddf9cc080d8a6a004c6e10e9c36bbe63527"
+        },
+        {
+          "name": "model.tar.bz2.part028",
+          "size": 8388608,
+          "sha256": "ef86c9ac6ca54a5f6933edd7280b1a709a12a62c3cc2a8d058b967846c830db0"
+        },
+        {
+          "name": "model.tar.bz2.part029",
+          "size": 8388608,
+          "sha256": "2f4e818b60afdd8c48e3a7f441162ccb1d638f3762eecc24fecc16c5981a8236"
+        },
+        {
+          "name": "model.tar.bz2.part030",
+          "size": 8388608,
+          "sha256": "1e4cd36e7e123fc6aff69056323efa7fd34e290bbcb0178c42069ce3ed6505c2"
+        },
+        {
+          "name": "model.tar.bz2.part031",
+          "size": 8388608,
+          "sha256": "27d364aa52bd2b9cd90330efb46e77330b4bafbefecfa6db6609e2c5707bfcbf"
+        },
+        {
+          "name": "model.tar.bz2.part032",
+          "size": 8388608,
+          "sha256": "23e84e00964486d912fa7c78193c8587abe797607608e40a8859bd705d211a05"
+        },
+        {
+          "name": "model.tar.bz2.part033",
+          "size": 8388608,
+          "sha256": "9c45da667366d769ca3aac1a9b68e2fa591ef8f87fb8156ef172342b2c07a018"
+        },
+        {
+          "name": "model.tar.bz2.part034",
+          "size": 8388608,
+          "sha256": "48da3542cd367b6c8b00904afcf67ac264f5872d4b9fb8254e87cd60061f06f5"
+        },
+        {
+          "name": "model.tar.bz2.part035",
+          "size": 8388608,
+          "sha256": "37ac99558c674e994c632c6c3703e95c3280df0c8556a017016f3c912402ad67"
+        },
+        {
+          "name": "model.tar.bz2.part036",
+          "size": 8388608,
+          "sha256": "6ff3045e2892a07f11ec54de74c33ccd5047a8f17385f2ba70bc25683ccdbdee"
+        },
+        {
+          "name": "model.tar.bz2.part037",
+          "size": 8388608,
+          "sha256": "c6c84ad926d8253b27585061a9c30de2f7fcc8958780b6e7ba94bf28a3126128"
+        },
+        {
+          "name": "model.tar.bz2.part038",
+          "size": 8388608,
+          "sha256": "e33b32baa53d25e4e15e9e0846af74bd2bc39f5f01cab4f3c6c7e012b0024dfc"
+        },
+        {
+          "name": "model.tar.bz2.part039",
+          "size": 8388608,
+          "sha256": "6178f85d552d9228a724ea1469f393b0c41c4ae471abd458a06bd2b00f68baab"
+        },
+        {
+          "name": "model.tar.bz2.part040",
+          "size": 8388608,
+          "sha256": "d7833cc713de8e0560e860bf875109f7db3bb6d97c3d681ea7a2c5749fa99731"
+        },
+        {
+          "name": "model.tar.bz2.part041",
+          "size": 8388608,
+          "sha256": "95092ce04fc687e7592a6c32c5ac0f4e0b376df3c2034bb6f3b778b6094406da"
+        },
+        {
+          "name": "model.tar.bz2.part042",
+          "size": 8388608,
+          "sha256": "27f923e1f7376eaf825670fdeb513f0494f75d8cac5ed8422a634ff12fc88173"
+        },
+        {
+          "name": "model.tar.bz2.part043",
+          "size": 8388608,
+          "sha256": "c56255411dc0d39a61f151480ec5ad2a0ce14aaa90bc9776d90936f8d3361624"
+        },
+        {
+          "name": "model.tar.bz2.part044",
+          "size": 8388608,
+          "sha256": "b8b2ab11033bfc7416302d4aab8ce2b707fd20ac43543abeddbafbdcfb626d8b"
+        },
+        {
+          "name": "model.tar.bz2.part045",
+          "size": 8388608,
+          "sha256": "a5a21807f53c0463615e53379ebfc7965af68e7c88d9aa85753cef72a86c6dcb"
+        },
+        {
+          "name": "model.tar.bz2.part046",
+          "size": 8388608,
+          "sha256": "0c93c8cd9b3eb734ed0bf9c4b9738c7bf39815b6693940f06f134225bd3df52c"
+        },
+        {
+          "name": "model.tar.bz2.part047",
+          "size": 8388608,
+          "sha256": "199d41b5230ea4e3ccdfe83e99baf14b32d5627bb365b9947bdcda45d1ec703c"
+        },
+        {
+          "name": "model.tar.bz2.part048",
+          "size": 8388608,
+          "sha256": "ffb995bf900d17e9b982a8c7a4661761aa774dd8b3169ab19b1c3fbf46552820"
+        },
+        {
+          "name": "model.tar.bz2.part049",
+          "size": 8388608,
+          "sha256": "fe205ffe3289ca7b72f20f7bda6b6dd1ce9490236add935449d09348e8761c9f"
+        },
+        {
+          "name": "model.tar.bz2.part050",
+          "size": 8388608,
+          "sha256": "52b3a2c54f425d3306d0b6f41c262ac5d7b229658615988e1802dbcf77cd57c8"
+        },
+        {
+          "name": "model.tar.bz2.part051",
+          "size": 8388608,
+          "sha256": "b0885cf0d578006bf2d7799d428dbe683386ae06c4b3bceac9882fb6fec7cad7"
+        },
+        {
+          "name": "model.tar.bz2.part052",
+          "size": 8388608,
+          "sha256": "6994d8b786c04d00d6aa08322bfed7577e89167498583fb66def8a303fcfe12e"
+        },
+        {
+          "name": "model.tar.bz2.part053",
+          "size": 8388608,
+          "sha256": "137b63234b08aac8c183e2980dfd2f37ef8712180a8b2f2eda390a4615ce88de"
+        },
+        {
+          "name": "model.tar.bz2.part054",
+          "size": 8388608,
+          "sha256": "c6aca2f5918221f8fbe8050aea3dcf22089dcf62e1368e2be7d7b0de81e12ccb"
+        },
+        {
+          "name": "model.tar.bz2.part055",
+          "size": 8388608,
+          "sha256": "053abfb6a638e294ff3bb4ee88cd9f456bfdab2a3db486e1095a69247286fdc4"
+        },
+        {
+          "name": "model.tar.bz2.part056",
+          "size": 8388608,
+          "sha256": "a7cdf13efa2920af82f2144ca982df5a11f439a96475147e9f5a65f0b1d0ea7e"
+        },
+        {
+          "name": "model.tar.bz2.part057",
+          "size": 8388608,
+          "sha256": "92d942fe07523fb3850dfda899f05bda59ce16924bc00920a50b56cbb22a504c"
+        },
+        {
+          "name": "model.tar.bz2.part058",
+          "size": 8388608,
+          "sha256": "764f9a5b391dcba7252233fb0a2f3225538db77383d1a89eb0105d9d85fc6122"
+        },
+        {
+          "name": "model.tar.bz2.part059",
+          "size": 8388608,
+          "sha256": "179a64d53abcd68b436ef58382a4be4aec15779e4c610491383cfca597107897"
+        },
+        {
+          "name": "model.tar.bz2.part060",
+          "size": 8388608,
+          "sha256": "bad55fba8877f64b412944b8b8dfe18585d6b40c37288bb5f7ea66d87b403e00"
+        },
+        {
+          "name": "model.tar.bz2.part061",
+          "size": 8388608,
+          "sha256": "01fff438652264038b0f1e35a09d54999e71c0195bace9daa3ad0a4045f3b722"
+        },
+        {
+          "name": "model.tar.bz2.part062",
+          "size": 8388608,
+          "sha256": "642505b7f936db73690a9ba19c6e00021b7361038f7586f9d24cbd135739fa48"
+        },
+        {
+          "name": "model.tar.bz2.part063",
+          "size": 8388608,
+          "sha256": "0bd6d568def4b5acb51a1ccf53266324d44c6887aa36209d3396f767468cf0fe"
+        },
+        {
+          "name": "model.tar.bz2.part064",
+          "size": 8388608,
+          "sha256": "32fa747cf3ea437b166af7c92abf3fef4573e61d47f25699e60c3fc63e462156"
+        },
+        {
+          "name": "model.tar.bz2.part065",
+          "size": 8388608,
+          "sha256": "4ad70182f2d7593c2fbda84abf300965a2924396fdee54bae32d583bdabe705b"
+        },
+        {
+          "name": "model.tar.bz2.part066",
+          "size": 8388608,
+          "sha256": "48e0a7f08a2d7a005da2c9e6bc0e74533d345d752369fc02a7e0cd1ce9348ca4"
+        },
+        {
+          "name": "model.tar.bz2.part067",
+          "size": 8388608,
+          "sha256": "9dfb2909dee07f618f717d0f51796b9dfb348dd0aac5cfc01e58fca48fb8c75c"
+        },
+        {
+          "name": "model.tar.bz2.part068",
+          "size": 8388608,
+          "sha256": "b64ed556d88e980907e97ceb9daeffb7322b24a1673e83552fd624dc7dd0e66f"
+        },
+        {
+          "name": "model.tar.bz2.part069",
+          "size": 8388608,
+          "sha256": "7d2ee9bee38751a61ec8701375c4a44efed74d1e7acf7fbd38292f92e9d89b43"
+        },
+        {
+          "name": "model.tar.bz2.part070",
+          "size": 8388608,
+          "sha256": "9cec3381521d782bf04145b7aed95fa192fb790e2d74e6e5bb971eeb03ed95ae"
+        },
+        {
+          "name": "model.tar.bz2.part071",
+          "size": 8388608,
+          "sha256": "d2c2b05ac47fccc2f4591f0f8eabb5571ef183f9e3f1941c046982f1d529d357"
+        },
+        {
+          "name": "model.tar.bz2.part072",
+          "size": 8388608,
+          "sha256": "6d2ae6992309adc2d6aeccf9af5c9f172c9d1250fd6fd68467660b6f50964a87"
+        },
+        {
+          "name": "model.tar.bz2.part073",
+          "size": 8388608,
+          "sha256": "f9ded9fe689ddefdd8071058f25b96929b07be4e8758abbc31e38133205a61a5"
+        },
+        {
+          "name": "model.tar.bz2.part074",
+          "size": 8388608,
+          "sha256": "ea0c9f53dfd63072dc5ab1c280bb2af344774621caa892228eb1f1a8df479b08"
+        },
+        {
+          "name": "model.tar.bz2.part075",
+          "size": 8388608,
+          "sha256": "9e713ceca4964ce98aabeed52a34d66debaa1c01ffff6df5668176d6989d25d5"
+        },
+        {
+          "name": "model.tar.bz2.part076",
+          "size": 8388608,
+          "sha256": "6ebe4df822564c808fda31ffaa479ca6356be067a530ebfda31b402c86491de9"
+        },
+        {
+          "name": "model.tar.bz2.part077",
+          "size": 8388608,
+          "sha256": "dfe1f54509cca6334954f07343c0b0fe6fd737b7e6a1bdb40d56ddeba48111dc"
+        },
+        {
+          "name": "model.tar.bz2.part078",
+          "size": 8388608,
+          "sha256": "a987b8330765735853435ca2424df010cf7a83ce732ec0af309836796c3300a8"
+        },
+        {
+          "name": "model.tar.bz2.part079",
+          "size": 8388608,
+          "sha256": "934ce50e6a531987d9d305237bc0df9814d14cc40d0b96d95729e651e2b319a0"
+        },
+        {
+          "name": "model.tar.bz2.part080",
+          "size": 8388608,
+          "sha256": "6a682fe3e4c29a5b584a114401009feaf8bd499e05efed150c5b55f5045d4dd7"
+        },
+        {
+          "name": "model.tar.bz2.part081",
+          "size": 8388608,
+          "sha256": "160255a30ff4551bb2031ff982db2a1cd11cd892e5f4b3bc1990a14c8c7ac97b"
+        },
+        {
+          "name": "model.tar.bz2.part082",
+          "size": 8388608,
+          "sha256": "4e4a93506a1859786868c5cef53cb4c7d498e540d701348d90ab00ab5c0ba453"
+        },
+        {
+          "name": "model.tar.bz2.part083",
+          "size": 8388608,
+          "sha256": "761ee0627e835de5a2140e6fee8ee667803875247be2cbf42bcfbd313c5d8336"
+        },
+        {
+          "name": "model.tar.bz2.part084",
+          "size": 8388608,
+          "sha256": "50441c7df58d0b7aa0f22475348b1980524376e61116369272ed998062796509"
+        },
+        {
+          "name": "model.tar.bz2.part085",
+          "size": 8388608,
+          "sha256": "45afe5613a2f187ba76dca82985ed72ec95aa267a1e75706d63eb565e3269fb4"
+        },
+        {
+          "name": "model.tar.bz2.part086",
+          "size": 8388608,
+          "sha256": "47c3bb98111321fd3a73b91fdcc667d9fead2ab5e37d6491afffc72ea1e10a95"
+        },
+        {
+          "name": "model.tar.bz2.part087",
+          "size": 8388608,
+          "sha256": "282764de14739c687369d41c0fb6978d9f986fa7179f90ce722792f68c3ec8e3"
+        },
+        {
+          "name": "model.tar.bz2.part088",
+          "size": 8388608,
+          "sha256": "0d1ddc55148219cd49a48d5eac5caccdd9bc81e694f1e206b4e497f1e9af9cda"
+        },
+        {
+          "name": "model.tar.bz2.part089",
+          "size": 8388608,
+          "sha256": "9b92b3a2ba3b2e9f7ea8a91b6e574130878ebfd0c8d91f4287e9209cbcd01ab9"
+        },
+        {
+          "name": "model.tar.bz2.part090",
+          "size": 8388608,
+          "sha256": "4250f586e4deed4a661fe893a2afc3ead25cadf324757b018d903a40a0f1430f"
+        },
+        {
+          "name": "model.tar.bz2.part091",
+          "size": 8388608,
+          "sha256": "f7395b186c4b88c9f157da9413d6968c811d38d6feaa0f8bf0701e9523efeb53"
+        },
+        {
+          "name": "model.tar.bz2.part092",
+          "size": 8388608,
+          "sha256": "531015a1dbafcf8c5181d7fce55a8ef220be3e4424f6c80cf4c762e574d9d350"
+        },
+        {
+          "name": "model.tar.bz2.part093",
+          "size": 8388608,
+          "sha256": "f4d7686f84d57a72b6988103d3c260d7d958fecc6e889a8c9866313ba9e9f0f5"
+        },
+        {
+          "name": "model.tar.bz2.part094",
+          "size": 8388608,
+          "sha256": "49d667073b1fcb5d0d6486edfcfafdb1f5802a9f65a3766da66dea07c5108240"
+        },
+        {
+          "name": "model.tar.bz2.part095",
+          "size": 8388608,
+          "sha256": "26d2058b6a401dbec7023640b141f2d6dc0ffe5519fd1b1b4fcc1769e006a86e"
+        },
+        {
+          "name": "model.tar.bz2.part096",
+          "size": 8388608,
+          "sha256": "72b9f081cfa5780092990c7ecd0712303f838357b71616cfa4f73edb1056c03a"
+        },
+        {
+          "name": "model.tar.bz2.part097",
+          "size": 8388608,
+          "sha256": "e64b0bd85fef3f992fd48cfc376691053fea261cf483269e05bef64a8d3bdbaa"
+        },
+        {
+          "name": "model.tar.bz2.part098",
+          "size": 8388608,
+          "sha256": "359e29881c21d5d055e282a3564291be2f2bc01d03c12aadf9b122a4d0a9d26a"
+        },
+        {
+          "name": "model.tar.bz2.part099",
+          "size": 8388608,
+          "sha256": "306f5af379ce05f440096593c7add00a173f95c8af9f2becd86a0a5e1e4540d5"
+        },
+        {
+          "name": "model.tar.bz2.part100",
+          "size": 8388608,
+          "sha256": "84078001246a74730c24255804071b85965ef62598a5f53990793ade35b3c4f0"
+        },
+        {
+          "name": "model.tar.bz2.part101",
+          "size": 8388608,
+          "sha256": "33d5f5576f53f7818aae1fdb8227dcfda28c1b44e623ebb914845160a4c83463"
+        },
+        {
+          "name": "model.tar.bz2.part102",
+          "size": 8388608,
+          "sha256": "4aa6cfcf4947ff21e72ae7237e3e4beb08853a1ebc78c67abcc0edc6051a2e54"
+        },
+        {
+          "name": "model.tar.bz2.part103",
+          "size": 8388608,
+          "sha256": "d33787b94fd28b027fdfa6e3d4b67b38baa1f24d272892cac95d33fa25384ecd"
+        },
+        {
+          "name": "model.tar.bz2.part104",
+          "size": 8388608,
+          "sha256": "8407e9ff27e23d1d15da9424d47605a6fe1c0c0507030a4f2b1ebc9c58afc89a"
+        },
+        {
+          "name": "model.tar.bz2.part105",
+          "size": 8388608,
+          "sha256": "9a757b4721d6687aeca93e9b3c0a7848ad890b1516912ce39146272990e08db2"
+        },
+        {
+          "name": "model.tar.bz2.part106",
+          "size": 8388608,
+          "sha256": "bddebdf677edcf23213ff8d4299f4bd7b2888dddbca5e88095332805c7fe6d12"
+        },
+        {
+          "name": "model.tar.bz2.part107",
+          "size": 8388608,
+          "sha256": "820ff4e3d438521a40352fa7349fcb5885c9cda7a4fba862831429e20ca497da"
+        },
+        {
+          "name": "model.tar.bz2.part108",
+          "size": 8388608,
+          "sha256": "b7f0b6bdc91731bc762be2db66e0ca8928ee0dc42f852d2c20f80632cadb99bb"
+        },
+        {
+          "name": "model.tar.bz2.part109",
+          "size": 8388608,
+          "sha256": "f08ac3a41e4ee607bed4ac0283a0095dd92a2dbc75388e11dabb859e8155f9a3"
+        },
+        {
+          "name": "model.tar.bz2.part110",
+          "size": 8388608,
+          "sha256": "7a0347135d806d622928e8441f45a566898a38dcae25072d3ddcaddad794cb68"
+        },
+        {
+          "name": "model.tar.bz2.part111",
+          "size": 8388608,
+          "sha256": "29c6b7ec9945f440f17e61a642ab64b702fcbe8cebc5dfd686557b2c139582c9"
+        },
+        {
+          "name": "model.tar.bz2.part112",
+          "size": 8388608,
+          "sha256": "b8ca392feab83982c8248e394e173c50fdf354d176dbf1d4c3c04d51aa964b02"
+        },
+        {
+          "name": "model.tar.bz2.part113",
+          "size": 8388608,
+          "sha256": "77aa82338753af7b518b9a558b9a7275855f2cfd8c0deac6bccc96dc7fad5816"
+        },
+        {
+          "name": "model.tar.bz2.part114",
+          "size": 8388608,
+          "sha256": "9810a2dfa578558a4bcf7d04a8471d06a45c89f3507febd091bfd3a6d15c8539"
+        },
+        {
+          "name": "model.tar.bz2.part115",
+          "size": 8388608,
+          "sha256": "2cdf7d371a6873d6c624c238e4d8a3c31d33ff266f0230170a225f723d15b852"
+        },
+        {
+          "name": "model.tar.bz2.part116",
+          "size": 8388608,
+          "sha256": "3a8d42b11664c4b0973d60aeb77529f82ec74f0b339ead2b5cdcd41dae822e25"
+        },
+        {
+          "name": "model.tar.bz2.part117",
+          "size": 8388608,
+          "sha256": "b72f7fdf4182dd31de8bba64ac2da85dd89131f8080b444c69704750cd2a3ab0"
+        },
+        {
+          "name": "model.tar.bz2.part118",
+          "size": 8388608,
+          "sha256": "194c3ffe6338d902e6f7411a27247e79bc38812467d739ed15e443428bb2d31c"
+        },
+        {
+          "name": "model.tar.bz2.part119",
+          "size": 8388608,
+          "sha256": "52395dcb57b6206479d935a5c8f7f6e96c411d78b64ac5de0cbfe933de2e09b7"
+        },
+        {
+          "name": "model.tar.bz2.part120",
+          "size": 8388608,
+          "sha256": "60e782ccc7427a999d1f6cf656a01c1b15bfcec054aa99520323bee3c50c13ee"
+        },
+        {
+          "name": "model.tar.bz2.part121",
+          "size": 8388608,
+          "sha256": "6ef83f41ad057fada8d71438ac8a3856e8e21bc3ad4e202eefd61a4ca79f98a0"
+        },
+        {
+          "name": "model.tar.bz2.part122",
+          "size": 8388608,
+          "sha256": "197d2ac3859a332101a02af2a7050dc0ca0bcd361f5764749f97820d7ffbe992"
+        },
+        {
+          "name": "model.tar.bz2.part123",
+          "size": 8388608,
+          "sha256": "8d081f81b8da27718b47607ac12767068e335f88757c68d3166a0286d5ab14d9"
+        },
+        {
+          "name": "model.tar.bz2.part124",
+          "size": 8388608,
+          "sha256": "6f4a07985db1dc9f7578445526d6e30604bba7a74b5468d38297b467cee2f377"
+        },
+        {
+          "name": "model.tar.bz2.part125",
+          "size": 7132345,
+          "sha256": "26c95e7bd598b46289c63ee4d364e788a9e463692b6cc3888df342d1258f43f9"
+        }
+      ],
+      "sha256": "5462a1fce42693deae572af1e8c4687124b12aa85fe61ff4d3168bb5280e205f",
+      "delivery": "parts"
+    }
+  ]
+}

@@ -10,15 +10,18 @@
 gh auth login
 gh repo clone one-sharp/Sentinel
 cd Sentinel
-gh release download v0.3.1-logic -R one-sharp/Sentinel -p Sentinel-dev-wheels-py312-win64.zip --dir .downloads
+py -3.12 download_release_assets.py
 Expand-Archive .downloads\Sentinel-dev-wheels-py312-win64.zip -DestinationPath .downloads
 .\setup_dev.cmd
-gh release download v0.3.1-logic -R one-sharp/Sentinel -p Sentinel-models-v0.3.1.zip --dir .downloads
 .\.venv\Scripts\python.exe restore_models.py --archive .downloads\Sentinel-models-v0.3.1.zip
 .\.venv\Scripts\python.exe restore_models.py --verify
 ```
 
 `setup_dev.cmd` 创建本机 `.venv`，从离线 wheel 包按 `requirements-lock.txt` 安装当前环境的版本；没有 `.env` 时才从 `.env.example` 创建，不覆盖已有配置。模型恢复程序按 `models-manifest.json` 校验五个模型文件，拒绝异常 ZIP 路径和不匹配的文件，也不会覆盖已有不同内容的模型。
+
+模型和较大的安装附件采用8 MiB分块上传，避免弱网络连接中断后整包重传。`download_release_assets.py` 默认下载开发需要的模型和离线依赖，验证每块及完整文件 SHA256，自动还原原文件名；已有正确文件会复用。重复运行可继续下载缺失分块。分块清单保存在 `release/assets-manifest.json`，不是用户数据。
+
+需要安装版时运行 `py -3.12 download_release_assets.py --asset Sentinel-Setup.exe`，完成后双击 `.downloads\Sentinel-Setup.exe`。下载全部五个附件使用 `py -3.12 download_release_assets.py --all`。也可在 Release 页面手动下载指定文件的所有 `.partNNN`，放到 `.downloads`，再运行同一命令自动合并与校验。
 
 依赖下载核验发现当前 `openai==3.46.0` 无法从所用包索引重新取得，因此发行版额外保存了当前已安装的31个发行包，重新封装为标准 wheel，保留上游元数据和许可文件，去除本机安装路径、缓存和自动生成的启动器。新环境由 pip 重建自己的启动器；没有替换 SDK 或改动运行后端。
 
