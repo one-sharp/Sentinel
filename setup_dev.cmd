@@ -16,6 +16,8 @@ if exist ".downloads\wheelhouse\" (
     exit /b 1
 )
 if errorlevel 1 exit /b 1
+".venv\Scripts\python.exe" -m pip check
+if errorlevel 1 exit /b 1
 if not exist ".env" copy /y ".env.example" ".env" >nul
 echo Python dependencies are ready. See DEVELOPMENT.md to download and restore model files.
 echo Double-click start_sentinel.cmd after restoring the models.

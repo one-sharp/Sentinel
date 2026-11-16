@@ -5,6 +5,7 @@ generated launchers. Pip regenerates Python launchers in the new environment.
 """
 import base64
 import csv
+from email.parser import Parser
 from importlib import metadata
 import io
 import json
@@ -41,8 +42,11 @@ def main():
         tags={line[5:].strip() for line in wheel.splitlines() if line.startswith('Tag:')}
         tag=next((str(t) for t in sys_tags() if str(t) in tags),None)
         if tag is None:raise ValueError('No compatible Windows Python tag: '+name)
-        wheel='\n'.join(line for line in wheel.splitlines() if not line.startswith(('Tag:','Generator:')))
+        wheel='\n'.join(line for line in wheel.splitlines() if not line.startswith(('Tag:','Generator:'))).rstrip()
         wheel+='\nGenerator: Sentinel private environment export\nTag: '+tag+'\n'
+        parsed=Parser().parsestr(wheel)
+        if parsed.get_all('Tag')!=[tag] or parsed.get('Root-Is-Purelib') is None:
+            raise ValueError('Invalid exported WHEEL header: '+name)
         launchers={p.name.lower()+'.exe' for p in dist.entry_points if p.group in ('console_scripts','gui_scripts')}
         target=out/(stem+'-'+tag+'.whl');records=[]
         with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED,compresslevel=3) as archive:
