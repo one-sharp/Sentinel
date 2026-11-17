@@ -1,11 +1,14 @@
 import copy
 import hashlib
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from urllib.request import Request
 
-from download_release_assets import ALLOWED, assemble, read_manifest
+from download_release_assets import ALLOWED, GithubRedirects, assemble, download_verified, read_manifest
 
 
 def entry(name="Sentinel-models-v0.3.1.zip"):
@@ -17,6 +20,39 @@ def entry(name="Sentinel-models-v0.3.1.zip"):
 
 
 class ReleaseRecoveryTests(unittest.TestCase):
+    def test_redirect_does_not_forward_github_token(self):
+        request = Request("https://api.github.com/repos/one-sharp/Sentinel/releases/assets/1")
+        request.add_unredirected_header("Authorization", "Bearer test-placeholder")
+        redirects = GithubRedirects()
+        redirected = redirects.redirect_request(request, None, 302, "Found", {}, "https://release-assets.githubusercontent.com/example")
+        self.assertIsNone(redirected.get_header("Authorization"))
+        for destination in ("http://release-assets.githubusercontent.com/example", "https://unexpected.example/file"):
+            with self.assertRaises(ValueError):
+                redirects.redirect_request(request, None, 302, "Found", {}, destination)
+
+    def test_download_verifies_payload_before_publishing_file(self):
+        item, blocks = entry()
+        expected = item["parts"][0]
+        asset = {"id": 1, "state": "uploaded", "size": expected["size"], "digest": "sha256:" + expected["sha256"]}
+        with tempfile.TemporaryDirectory() as directory, patch("download_release_assets.build_opener") as factory:
+            factory.return_value.open.return_value = io.BytesIO(blocks[0])
+            result = download_verified(asset, expected, Path(directory), "test-placeholder", {})
+            self.assertEqual(result.read_bytes(), blocks[0])
+            request = factory.return_value.open.call_args.args[0]
+            self.assertIn("Authorization", request.unredirected_hdrs)
+            self.assertNotIn("Authorization", request.headers)
+            self.assertFalse(list(Path(directory).glob(".sentinel-download-*")))
+
+    def test_corrupt_download_never_publishes_a_partial_file(self):
+        item, _ = entry()
+        expected = item["parts"][0]
+        asset = {"id": 1, "state": "uploaded", "size": expected["size"], "digest": "sha256:" + expected["sha256"]}
+        with tempfile.TemporaryDirectory() as directory, patch("download_release_assets.build_opener") as factory, patch("download_release_assets.time.sleep"):
+            factory.return_value.open.side_effect = lambda *a, **kw: io.BytesIO(b"corrupt")
+            with self.assertRaisesRegex(ValueError, "SHA256"):
+                download_verified(asset, expected, Path(directory), "test-placeholder", {})
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_assemble_verifies_and_reuses_complete_file(self):
         item, blocks = entry()
         with tempfile.TemporaryDirectory() as directory:

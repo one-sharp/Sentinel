@@ -2,16 +2,75 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener, getproxies
 
 ROOT = Path(__file__).resolve().parent
 DEVELOPMENT = ("Sentinel-dev-wheels-py312-win64.zip", "Sentinel-models-v0.3.1.zip")
 ALLOWED = {*DEVELOPMENT, "Sentinel-Setup.exe", "Sentinel-portable-v0.3.1.zip", "model.tar.bz2"}
+
+
+class GithubRedirects(HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, newurl):
+        target = urlsplit(newurl)
+        if target.scheme != "https" or target.hostname not in {
+            "api.github.com", "github.com", "release-assets.githubusercontent.com",
+            "objects.githubusercontent.com", "github-releases.githubusercontent.com",
+        }:
+            raise ValueError("Unexpected release download destination")
+        return super().redirect_request(request, response, code, message, headers, newurl)
+
+
+def download_verified(asset: dict, expected: dict, directory: Path, token: str, proxies: dict) -> Path:
+    target = directory / expected["name"]
+    if target.exists():
+        if target.stat().st_size == expected["size"] and digest(target) == expected["sha256"]:
+            return target
+        raise ValueError(f"Existing download differs; move it aside first: {target}")
+    if asset.get("state") != "uploaded" or asset.get("size") != expected["size"] or asset.get("digest") != "sha256:" + expected["sha256"]:
+        raise ValueError(f"Release asset is missing or unverified: {target.name}")
+    for attempt in range(4):
+        temporary = None
+        try:
+            opener = build_opener(ProxyHandler(proxies), GithubRedirects())
+            request = Request(f'https://api.github.com/repos/one-sharp/Sentinel/releases/assets/{int(asset["id"])}?sentinel={time.time_ns()}',
+                              headers={"Accept": "application/octet-stream", "Cache-Control": "no-cache", "User-Agent": "Sentinel-migration"})
+            # urllib does not forward unredirected headers to the signed asset URL.
+            request.add_unredirected_header("Authorization", "Bearer " + token)
+            count = 0
+            checksum = hashlib.sha256()
+            with opener.open(request, timeout=45) as response, tempfile.NamedTemporaryFile(prefix=".sentinel-download-", dir=directory, delete=False) as output:
+                temporary = Path(output.name)
+                while block := response.read(128 * 1024):
+                    count += len(block)
+                    if count > expected["size"]:
+                        raise ValueError("Download exceeds expected size")
+                    checksum.update(block)
+                    output.write(block)
+            if count != expected["size"] or checksum.hexdigest() != expected["sha256"]:
+                raise ValueError("Downloaded content failed SHA256 verification")
+            if target.exists():
+                raise ValueError(f"Destination appeared during download: {target}")
+            temporary.rename(target)
+            print(f"Downloaded: {target.name}", flush=True)
+            return target
+        except (OSError, ValueError):
+            if attempt == 3:
+                raise
+            time.sleep(2 * (attempt + 1))
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    raise RuntimeError("Download retries exhausted")
 
 
 def digest(path: Path) -> str:
@@ -78,9 +137,21 @@ def main() -> None:
     parser.add_argument("--asset", choices=sorted(ALLOWED), action="append", help="Restore selected file(s)")
     parser.add_argument("--directory", type=Path, default=ROOT / ".downloads")
     args = parser.parse_args()
+    environment = os.environ.copy()
+    # gh follows environment proxies; Windows users may configure only WinINET.
+    if proxy := getproxies().get("https"):
+        environment.setdefault("HTTPS_PROXY", proxy)
     manifest = read_manifest(ROOT / "release" / "assets-manifest.json")
     selected = ALLOWED if args.all else set(args.asset or DEVELOPMENT)
     args.directory.mkdir(parents=True, exist_ok=True)
+    def gh_json(arguments):
+        result = subprocess.run(["gh", *arguments], check=True, capture_output=True, text=True, env=environment)
+        return json.loads(result.stdout)
+    release = gh_json(["release", "view", manifest["tag"], "--repo", manifest["repo"], "--json", "databaseId"])
+    pages = gh_json(["api", "--paginate", "--slurp", f'repos/{manifest["repo"]}/releases/{int(release["databaseId"])}/assets?per_page=100'])
+    assets = {asset["name"]: asset for page in pages for asset in page}
+    token = subprocess.run(["gh", "auth", "token"], check=True, capture_output=True, text=True).stdout.strip()
+    proxies = getproxies()
     for item in manifest["files"]:
         if item["name"] not in selected:
             continue
@@ -89,16 +160,17 @@ def main() -> None:
             print(f"Verified: {assemble(item, args.directory)}", flush=True)
             continue
         if item["delivery"] == "file":
-            subprocess.run(["gh", "release", "download", manifest["tag"], "--repo", manifest["repo"], "--dir", str(args.directory), "--pattern", item["name"]], check=True)
+            download_verified(assets.get(item["name"], {}), item, args.directory, token, proxies)
             print(f"Verified: {assemble(item, args.directory)}", flush=True)
             continue
-        command = ["gh", "release", "download", manifest["tag"], "--repo", manifest["repo"], "--dir", str(args.directory), "--skip-existing"]
         for part in item["parts"]:
             path = args.directory / part["name"]
             if path.exists() and (path.stat().st_size != part["size"] or digest(path) != part["sha256"]):
                 raise ValueError(f"Corrupt downloaded part; remove it and retry: {path}")
-            command += ["--pattern", part["name"]]
-        subprocess.run(command, check=True)
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            jobs = [pool.submit(download_verified, assets.get(part["name"], {}), part, args.directory, token, proxies) for part in item["parts"]]
+            for job in jobs:
+                job.result()
         print(f"Verified: {assemble(item, args.directory)}", flush=True)
 
 
