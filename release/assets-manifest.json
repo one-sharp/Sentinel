@@ -64,7 +64,7 @@
         }
       ],
       "sha256": "5935eee1fd611cefbdad09f4d04ca653094857269a43f60a45176c61fda41d1a",
-      "delivery": "file"
+      "delivery": "parts"
     },
     {
       "name": "Sentinel-models-v0.3.1.zip",

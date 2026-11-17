@@ -18,7 +18,7 @@ def main() -> None:
     manifest = {"schema": 1, "repo": "one-sharp/Sentinel", "tag": "v0.3.1-logic", "files": []}
     for path in FILES:
         whole = hashlib.sha256()
-        entry = {"name": path.name, "size": 0, "delivery": "file" if path.name == "Sentinel-dev-wheels-py312-win64.zip" else "parts", "parts": []}
+        entry = {"name": path.name, "size": 0, "delivery": "parts", "parts": []}
         with path.open("rb") as source:
             for index, block in enumerate(iter(lambda: source.read(8 * 1024 * 1024), b""), 1):
                 name = f"{path.name}.part{index:03d}"
