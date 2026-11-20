@@ -26,13 +26,16 @@ class DesktopPreferences:
     def __init__(self, path=None):
         self.path = Path(path) if path else user_data_dir() / "desktop_settings.json"
         self.error = ""
-        self.value = {"version": 1, "topmost": True, "hotkeys": dict(DEFAULT_HOTKEYS)}
+        self.value = {"version": 2, "topmost": False, "translucent": True, "hotkeys": dict(DEFAULT_HOTKEYS)}
         if self.path.exists():
             try:
                 saved = json.loads(self.path.read_text(encoding="utf-8"))
                 if not isinstance(saved, dict) or not isinstance(saved.get("hotkeys", {}), dict):
                     raise ValueError("设置格式不正确")
-                self.value["topmost"] = bool(saved.get("topmost", True))
+                # v1 defaulted to always on top. Migrate that inherited policy
+                # once; v2 preserves an explicit manual choice.
+                self.value["topmost"] = bool(saved.get("topmost", False)) if saved.get('version') == 2 else False
+                self.value["translucent"] = bool(saved.get("translucent", True))
                 self.value["hotkeys"].update({k:v for k,v in saved.get("hotkeys", {}).items() if k in DEFAULT_HOTKEYS})
             except (OSError, ValueError) as exc:
                 self.error = f"桌面设置读取失败，已使用默认值：{exc}"

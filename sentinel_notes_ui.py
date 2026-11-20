@@ -4,11 +4,14 @@ import tkinter as tk
 from tkinter import ttk
 
 from sentinel_desktop import NOTE_KINDS
+from sentinel_theme import BG, CARD, TEXT, MUTED, ACCENT
+from sentinel_scroll import attach_scrollbars
 
 
 class NoteComposer:
-    def __init__(self, root, store, context, on_error):
+    def __init__(self, root, store, context, on_error, *, page_factory=None):
         self.root, self.store, self.context_provider, self.on_error = root, store, context, on_error
+        self.page_factory = page_factory
         self.window = None
         self.context = None
         self.last_written = None
@@ -16,29 +19,28 @@ class NoteComposer:
 
     def open(self):
         if self.window is None or not self.window.winfo_exists():
-            self.window = tk.Toplevel(self.root)
-            self.window.attributes('-topmost',bool(self.root.attributes('-topmost')))
-            self.window.title("Sentinel 哨兵 · 私人快速笔记")
-            self.window.geometry("580x500")
-            self.window.minsize(420, 400)
-            self.window.configure(bg="#101C28")
-            self.window.protocol("WM_DELETE_WINDOW", self.close)
+            self.window = self.page_factory('私人笔记') if self.page_factory else tk.Toplevel(self.root)
+            if not self.page_factory:
+                self.window.attributes('-topmost',bool(self.root.attributes('-topmost')))
+                self.window.title("Sentinel 哨兵 · 私人快速笔记")
+                self.window.geometry("580x500")
+                self.window.minsize(420, 400)
+                self.window.configure(bg=BG)
+                self.window.protocol("WM_DELETE_WINDOW", self.close)
             self.window.bind("<Destroy>", lambda event: self.cancel_focus() if event.widget is self.window else None)
             box = ttk.Frame(self.window, padding=16)
             box.pack(fill="both", expand=True)
-            ttk.Label(box, text="只写给自己", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
-            ttk.Label(box, text="私人输入 · 不算作已说出口 · 不自动发送给 AI", foreground="#9BB0BF").pack(anchor="w", pady=(4, 12))
+            ttk.Label(box, text="只写给自己", font=("Microsoft YaHei UI", 13, "bold")).pack(anchor="w")
+            ttk.Label(box, text="私人输入 · 不算作已说出口 · 不自动发送给 AI", foreground=MUTED).pack(anchor="w", pady=(4, 12))
             self.kind = tk.StringVar(value=NOTE_KINDS[0])
             ttk.Combobox(box, textvariable=self.kind, values=NOTE_KINDS, state="readonly", width=12).pack(anchor="w")
             self.session_label = tk.StringVar()
-            ttk.Label(box, textvariable=self.session_label, foreground="#9BB0BF", wraplength=520).pack(anchor="w", pady=8)
+            ttk.Label(box, textvariable=self.session_label, foreground=MUTED, wraplength=520).pack(anchor="w", pady=8)
             frame = ttk.Frame(box)
             frame.pack(fill="both", expand=True)
             self.editor = tk.Text(frame, wrap="word", undo=True, height=7, font=("Microsoft YaHei UI", 11),
-                                  bg="#152734", fg="#F1F7FA", insertbackground="#36E0D0", bd=0, padx=10, pady=10)
-            scroll = ttk.Scrollbar(frame, orient="vertical", command=self.editor.yview)
-            self.editor.configure(yscrollcommand=scroll.set)
-            scroll.pack(side="right", fill="y")
+                                  bg=CARD, fg=TEXT, insertbackground=ACCENT, bd=0, padx=10, pady=10)
+            attach_scrollbars(self.editor)
             self.editor.pack(fill="both", expand=True)
             self.editor.bind("<Control-Return>", lambda event: (self.save(), "break")[-1])
             footer = ttk.Frame(box)
@@ -57,6 +59,8 @@ class NoteComposer:
             self.history.pack(fill="x")
             self.history.bind("<<ComboboxSelected>>", self.restore)
             self._new()
+            if self.page_factory:
+                self.window.before_leave = self.save_draft
         self.refresh_history()
         self.window.deiconify()
         self.window.lift()
@@ -64,7 +68,7 @@ class NoteComposer:
         self.focus_after = self.window.after(50, self.focus)
 
     def focus(self):
-        self.focus_after = None
+        self.cancel_focus()
         if self.window is not None and self.window.winfo_exists() and self.window.state() != "withdrawn":
             self.window.focus_force()
             self.editor.focus_set()

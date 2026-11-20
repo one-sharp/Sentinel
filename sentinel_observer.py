@@ -15,6 +15,8 @@ import traceback
 from pathlib import Path
 from typing import Callable
 
+from sentinel_briefing import validate_briefing
+
 SCENES = {
     "meeting": "工作会议：决策、职责、截止时间、分歧、未确认事项。",
     "negotiation": "商务与合同谈判：金额、期限、条件、责任、让步和前后矛盾。",
@@ -131,11 +133,12 @@ class LLMObserver:
         self.on_event = on_event or (lambda **kwargs: None)
         self.pending = queue.Queue(maxsize=1)
         self.stop_flag = threading.Event()
-        self._submission_lock = threading.Lock()
+        self._submission_lock = threading.RLock()
         self._client_closed = False
         self.last_submitted = ""
         self.last_submit_at = float("-inf")
         self.revision = 0
+        self.source_epoch = 0
         self.last_completed_revision = 0
         self.event_state = ""
         self.last_alert_signature = ""
@@ -159,6 +162,29 @@ class LLMObserver:
                 return False
             return self._submit(finals, partial, force)
 
+    def invalidate_context(self) -> int:
+        """Invalidate analysis before publishing transcript or role corrections.
+
+        Request revisions order submissions; source epochs identify corrections
+        that make even a newer in-flight interpretation obsolete. The caller
+        attaches the returned epoch to its correction event.
+        """
+        with self._submission_lock:
+            if self.stop_flag.is_set():
+                return self.source_epoch
+            self.source_epoch += 1
+            self.event_state = ""
+            self.last_submitted = ""
+            self.last_submit_at = float("-inf")
+            self.last_alert_signature = ""
+            self.last_alert_time = float("-inf")
+            self.last_alert_was_provisional = False
+            try:
+                self.pending.get_nowait()
+            except queue.Empty:
+                pass
+            return self.source_epoch
+
     def _submit(self, finals: str, partial: str, force: bool):
         parts = []
         if finals.strip():
@@ -178,7 +204,8 @@ class LLMObserver:
         self.last_submitted = snapshot
         self.last_submit_at = now
         self.revision += 1
-        job = (self.revision, snapshot, now)
+        # Evidence travels with the request, independently of provisional text.
+        job = (self.revision, snapshot, finals.strip()[-2300:], now, self.source_epoch)
         try:
             self.pending.put_nowait(job)
         except queue.Full:
@@ -190,7 +217,7 @@ class LLMObserver:
             self.pending.put_nowait(job)
         self.log.write("llm_enqueue", revision=self.revision,
                        transcript_chars=len(snapshot), force=force)
-        self.on_event(kind="llm_pending", revision=self.revision)
+        self.on_event(kind="llm_pending", revision=self.revision, source_epoch=self.source_epoch)
         return True
 
     def _worker(self):
@@ -217,8 +244,25 @@ class LLMObserver:
             "没有新事件则 alert=false，不要为了提醒而提醒。"
             "只输出一个 JSON 对象，包含："
             "alert(boolean)、headline(<=18字)、summary(<=60字)、"
-            "action(<=28字)、state(<=220字，更新后的事件事实和待核实事项摘要)。"
-            "headline 适合醒目大字显示。summary 必须描述本轮发现的依据，而非编造的背景。"
+            "action(<=28字)、state(<=220字，更新后的事件事实和待核实事项摘要)、"
+            'briefing({"situation":"当前局势，<=220字",'
+            '"background":"当前谈论事项的背景，<=180字",'
+            '"background_quotes":["支持背景的已确认逐字原话"],'
+            '"agreements":[{"text":"双方明确达成的共识","quotes":["已确认转写中的逐字原话"]}],'
+            '"open_questions":[{"text":"仍需确认的问题","quotes":["已确认转写中的逐字原话"]}],'
+            '"next_goal":"建议下一步希望确认或达成的目标，<=180字",'
+            '"next_goal_quotes":["支持该目标的已确认逐字原话"]} )。'
+            "每次都更新 briefing，即使 alert=false；两种条目各最多4项，没有可靠依据时返回空数组。"
+            "agreements 仅记录双方明确确认的共识；单方提议、拒绝、沉默和未同意均不能记为共识。"
+            "quotes 只能逐字引用本轮已确认转写，禁止引用临时识别、此前事件状态或自行补写原话。"
+            "每条最多4个引用，每个引用<=180字，必须同时覆盖对应双方的确认依据。"
+            "situation 可说明当前提议、拒绝或分歧，清楚区分事实与待核实内容。"
+            "background 只归纳当前事项的已知前因和条件；没有本轮已确认原话依据时留空。"
+            "next_goal 是建议接下来希望确认或达成的结果，区别于 action 的具体问法或操作；"
+            "不得写成已经达成、已经说出口或已经获得双方同意，也不得凭空添加预算、期限或人物。"
+            "background_quotes 和 next_goal_quotes 各需1至4条本轮已确认逐字原话支撑；"
+            "没有可靠依据时，文字留空且对应 quotes 返回空数组。"
+            "headline 简明扼要。summary 必须描述本轮发现的依据，而非编造的背景。"
             "action 应该是具体、可执行的核实动作。"
             "涉及医疗、法律、安全等情形时只提供事实核对和提醒，不给出未经验证的确定性专业判断。"
         )
@@ -231,17 +275,21 @@ class LLMObserver:
                 continue
             if job is STOP or self.stop_flag.is_set():
                 break
-            revision, transcript, submitted_at = job
-            self.requests += 1
-            queue_delay = time.perf_counter() - submitted_at
-            self.on_event(kind="llm_running", revision=revision)
-            prompt = (
-                "此前已建立的事件状态（根据新证据可更正）：\n"
-                + (self.event_state or "暂无")
-                + "\n\n目前最新的转写片段（可能包含前文供你理解上下文）：\n"
-                + transcript
-                + "\n\n请检查是否有值得打断用户注意力的**新变化**，与此前状态比较。"
-            )
+            revision, transcript, confirmed_text, submitted_at, source_epoch = job
+            with self._submission_lock:
+                if self._discard_obsolete(revision, source_epoch):
+                    continue
+                self.requests += 1
+                queue_delay = time.perf_counter() - submitted_at
+                self.on_event(kind="llm_running", revision=revision, source_epoch=source_epoch)
+                prompt = (
+                    "此前已建立的事件状态（根据新证据可更正）：\n"
+                    + (self.event_state or "暂无")
+                    + "\n\n目前最新的转写片段（可能包含前文供你理解上下文）：\n"
+                    + transcript
+                    + "\n\n请更新当前事项的背景、当前局势、已达成共识、待确认事项和建议的下一步目标，"
+                    "并检查是否有值得提醒用户注意的新变化。"
+                )
             started_at = time.perf_counter()
             self.log.write("llm_request", revision=revision, queue_delay_s=round(queue_delay, 3))
             try:
@@ -252,67 +300,83 @@ class LLMObserver:
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.1,
-                    max_tokens=320,
+                    max_tokens=1200,
                     **provider_options(self.client, self.model),
                 )
-                if self.stop_flag.is_set():
-                    self.log.write("llm_cancelled", revision=revision, reason="session_stopped")
-                    continue
                 raw = result.choices[0].message.content or ""
-                parsed = parse_json_response(raw)
-                latency = time.perf_counter() - started_at
-                self.completed += 1
-                self.last_completed_revision = revision
-                self.last_latency_s = latency
-                if isinstance(parsed.get("state"), str) and parsed["state"].strip():
-                    self.event_state = parsed["state"].strip()[:500]
-                provisional = revision < self.revision
-                self.log.write("llm_result", revision=revision,
-                               latency_s=round(latency, 3),
-                               from_capture_to_result_s=round(time.perf_counter() - submitted_at, 3),
-                               provisional=provisional, result=parsed)
-                if parsed.get("invalid_json"):
-                    print(f"\n[LLM格式异常] 模型未返回可解析JSON；原文={raw[:200]!r}", flush=True)
-                    self.on_event(kind="llm_error", text="模型未返回有效 JSON")
-                    continue
-                is_alert = parsed.get("alert") is True or str(parsed.get("alert")).lower() == "true"
-                headline = str(parsed.get("headline") or "")[:70]
-                evidence = str(parsed.get("summary") or "")[:250]
-                action = str(parsed.get("action") or "")[:120]
-                if is_alert and headline:
-                    signature = headline + "|" + action
-                    if (signature == self.last_alert_signature
-                            and time.perf_counter() - self.last_alert_time < 45
-                            and (provisional or not self.last_alert_was_provisional)):
-                        print(f"\n[LLM观察] 同一提醒已展示，避免重复 | {latency:.2f}s", flush=True)
-                        self.on_event(kind="llm_silent", revision=revision, latency=latency)
-                        continue
-                    self.last_alert_signature = signature
-                    self.last_alert_time = time.perf_counter()
-                    self.last_alert_was_provisional = provisional
-                    self.alerts += 1
-                    tag = "待核对" if provisional else "关注"
-                    print("\n" + "=" * 66)
-                    print(f"[SENTINEL · {tag}] {headline}")
-                    print("依据：" + evidence)
-                    print("建议：" + action)
-                    print(f"LLM响应：{latency:.2f}s | 请求版本：{revision}" + (" | 已有更新转写" if provisional else ""))
-                    print("=" * 66, flush=True)
-                    self.on_event(kind="alert", headline=headline, summary=evidence,
-                                  action=action, provisional=provisional,
-                                  revision=revision, latency=latency)
-                else:
-                    print(f"\n[LLM观察] 暂无值得提醒的新变化 | {latency:.2f}s | rev={revision}", flush=True)
-                    self.on_event(kind="llm_silent", revision=revision, latency=latency)
+                with self._submission_lock:
+                    if not self._discard_obsolete(revision, source_epoch):
+                        self._publish_result(raw, revision, confirmed_text, submitted_at,
+                                             source_epoch, time.perf_counter() - started_at)
             except Exception as exc:
-                if self.stop_flag.is_set():
-                    self.log.write("llm_cancelled", revision=revision, reason="session_stopped", error=str(exc))
-                    continue
-                self.failures += 1
-                self.log.write("llm_error", revision=revision, error=str(exc),
-                               traceback=traceback.format_exc())
-                print(f"\n[LLM错误] {exc}", flush=True)
-                self.on_event(kind="llm_error", text=str(exc)[:180])
+                with self._submission_lock:
+                    if self._discard_obsolete(revision, source_epoch):
+                        continue
+                    self.failures += 1
+                    self.log.write("llm_error", revision=revision, source_epoch=source_epoch,
+                                   error=str(exc), traceback=traceback.format_exc())
+                    print(f"\n[LLM错误] {exc}", flush=True)
+                    self.on_event(kind="llm_error", text=str(exc)[:180],
+                                  revision=revision, source_epoch=source_epoch)
+
+    def _discard_obsolete(self, revision, source_epoch):
+        """Called under the submission lock, also used while publishing results."""
+        reason = ("session_stopped" if self.stop_flag.is_set() else
+                  "context_invalidated" if source_epoch != self.source_epoch else "")
+        if reason:
+            self.log.write("llm_cancelled", revision=revision,
+                           source_epoch=source_epoch, reason=reason)
+        return bool(reason)
+
+    def _publish_result(self, raw, revision, confirmed_text, submitted_at, source_epoch, latency):
+        """Commit a current response while corrections and submissions are locked."""
+        parsed = parse_json_response(raw)
+        self.completed += 1
+        self.last_completed_revision = revision
+        self.last_latency_s = latency
+        if isinstance(parsed.get("state"), str) and parsed["state"].strip():
+            self.event_state = parsed["state"].strip()[:500]
+        provisional = revision < self.revision
+        metadata = dict(revision=revision, source_epoch=source_epoch, latency=latency)
+        self.log.write("llm_result", revision=revision, source_epoch=source_epoch,
+                       latency_s=round(latency, 3),
+                       from_capture_to_result_s=round(time.perf_counter() - submitted_at, 3),
+                       provisional=provisional, result=parsed)
+        if parsed.get("invalid_json"):
+            print(f"\n[LLM格式异常] 模型未返回可解析JSON；原文={raw[:200]!r}", flush=True)
+            self.on_event(kind="llm_error", text="模型未返回有效 JSON", **metadata)
+            return
+        brief = validate_briefing(parsed.get("briefing"), confirmed_text)
+        if brief is not None:
+            self.on_event(kind="briefing", briefing=brief, provisional=provisional, **metadata)
+        is_alert = parsed.get("alert") is True or str(parsed.get("alert")).lower() == "true"
+        headline = str(parsed.get("headline") or "")[:70]
+        evidence = str(parsed.get("summary") or "")[:250]
+        action = str(parsed.get("action") or "")[:120]
+        if is_alert and headline:
+            signature = headline + "|" + action
+            if (signature == self.last_alert_signature
+                    and time.perf_counter() - self.last_alert_time < 45
+                    and (provisional or not self.last_alert_was_provisional)):
+                print(f"\n[LLM观察] 同一提醒已展示，避免重复 | {latency:.2f}s", flush=True)
+                self.on_event(kind="llm_silent", **metadata)
+                return
+            self.last_alert_signature = signature
+            self.last_alert_time = time.perf_counter()
+            self.last_alert_was_provisional = provisional
+            self.alerts += 1
+            tag = "待核对" if provisional else "关注"
+            print("\n" + "=" * 66)
+            print(f"[SENTINEL · {tag}] {headline}")
+            print("依据：" + evidence)
+            print("建议：" + action)
+            print(f"LLM响应：{latency:.2f}s | 请求版本：{revision}" + (" | 已有更新转写" if provisional else ""))
+            print("=" * 66, flush=True)
+            self.on_event(kind="alert", headline=headline, summary=evidence,
+                          action=action, provisional=provisional, **metadata)
+        else:
+            print(f"\n[LLM观察] 暂无值得提醒的新变化 | {latency:.2f}s | rev={revision}", flush=True)
+            self.on_event(kind="llm_silent", **metadata)
 
     def stop(self):
         with self._submission_lock:

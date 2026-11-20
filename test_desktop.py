@@ -9,6 +9,7 @@ import threading
 import time
 import tkinter as tk
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -98,6 +99,42 @@ class DesktopTests(unittest.TestCase):
         self.assertIn("microphone unavailable", panel.error.get())
         self.assertIn("存在错误", panel.state.get())
         self.assertEqual(str(panel.start_button["state"]), "normal")
+
+    def test_real_session_without_microphone_returns_to_retryable_ui(self):
+        from sentinel_audio import MicrophoneUnavailable
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent, prefix='.sentinel-test-') as directory:
+            panel = self.panel(run)
+            panel.controller.args.log_dir = Path(directory)
+            with patch('sentinel_live.prepare_microphone', side_effect=MicrophoneUnavailable('未检测到可用麦克风')), \
+                    patch('sentinel_live.build_recognizer') as model, \
+                    patch('sentinel_live.LLMObserver') as observer, self.assertLogs(level='ERROR'):
+                panel.start_button.invoke()
+                self.wait_until(lambda: not panel.controller.busy)
+            self.assertFalse(panel.mic_on)
+            self.assertIn('未检测到可用麦克风', panel.error.get())
+            self.assertEqual(str(panel.start_button['state']), 'normal')
+            self.assertEqual(str(panel.stop_button['state']), 'disabled')
+            model.assert_not_called()
+            observer.assert_not_called()
+
+    def test_audio_check_runs_off_ui_thread_without_recording_and_delivers_result(self):
+        from sentinel_audio import Microphone
+        ui_thread = threading.get_ident()
+        probe_threads = []
+        def probe(device, rate):
+            probe_threads.append(threading.get_ident())
+            return Microphone(7, 'USB mic', 44100)
+        panel = self.panel(lambda *a, **kw: None)
+        with patch('sentinel_audio.prepare_microphone', side_effect=probe), \
+                patch('sounddevice.InputStream') as capture:
+            panel.check_audio()
+            self.wait_until(lambda: 'USB mic' in panel.audio_status.get())
+            panel.audio_check_thread.join(1)
+        self.assertNotEqual(probe_threads[0], ui_thread)
+        self.assertFalse(panel.controller.busy)
+        self.assertFalse(panel.mic_on)
+        self.assertIn('44100', panel.audio_status.get())
+        capture.assert_not_called()
 
     def test_close_waits_for_cleanup_without_blocking_tk(self):
         entered, release = threading.Event(), threading.Event()
@@ -190,6 +227,10 @@ class ShutdownTests(unittest.TestCase):
 
 class RunLifecycleTests(unittest.TestCase):
     def setUp(self):
+        from sentinel_audio import Microphone
+        self.audio_patch = patch("sentinel_live.prepare_microphone", return_value=Microphone(1, "Test mic", 48000))
+        self.audio_mock = self.audio_patch.start()
+        self.addCleanup(self.audio_patch.stop)
         self.log_patch = patch("sentinel_live.logs_dir", return_value=Path("logs"))
         self.log_patch.start()
         self.addCleanup(self.log_patch.stop)
@@ -231,6 +272,78 @@ class RunLifecycleTests(unittest.TestCase):
         rows = self.rows()
         self.assertTrue(any(row["type"] == "error" and "model failed" in row["error"] for row in rows))
         self.assertEqual(rows[-1]["type"], "summary")
+
+    def test_missing_microphone_does_not_load_models_or_api_or_erase_previous_transcript(self):
+        from sentinel_audio import MicrophoneUnavailable
+        Path("logs").mkdir()
+        transcript = Path("logs/last-transcript.txt")
+        transcript.write_text("上次的转写", encoding="utf-8")
+        self.audio_mock.side_effect = MicrophoneUnavailable("未检测到可用麦克风")
+        with patch("sentinel_live.build_recognizer") as model, \
+                patch("sentinel_live.LLMObserver") as observer, \
+                patch("sounddevice.InputStream") as capture:
+            with self.assertRaisesRegex(MicrophoneUnavailable, "未检测到"):
+                run(create_parser().parse_args(["--llm"]))
+        model.assert_not_called()
+        observer.assert_not_called()
+        capture.assert_not_called()
+        self.assertEqual(transcript.read_text(encoding="utf-8"), "上次的转写")
+        self.assertEqual(self.rows()[-1]["type"], "summary")
+
+    def test_device_disconnect_exits_and_closes_capture(self):
+        from sentinel_audio import MicrophoneUnavailable
+        from unittest.mock import MagicMock
+        capture = MagicMock()
+        capture.__enter__.return_value.active = False
+        events = []
+        recognizer = SimpleNamespace(create_stream=lambda: object())
+        with patch("sentinel_live.build_recognizer", return_value=recognizer), \
+                patch("sounddevice.InputStream", return_value=capture):
+            with self.assertRaisesRegex(MicrophoneUnavailable, "断开"):
+                run(create_parser().parse_args([]), on_event=lambda **evt: events.append(evt))
+        capture.__exit__.assert_called_once()
+        self.assertTrue(any(evt['kind'] == 'listening' for evt in events))
+        self.assertEqual(events[-1]['kind'], 'stopped')
+
+    def test_supported_rate_flows_from_capture_through_asr_to_final_transcript(self):
+        import numpy as np
+        from sentinel_audio import Microphone
+        self.audio_mock.return_value = Microphone(7, "USB mic", 44100)
+        stop = threading.Event()
+        events, received, opened = [], [], []
+
+        class Capture:
+            def __init__(self, **kwargs):
+                opened.append(kwargs)
+                self.callback = kwargs['callback']
+            def __enter__(self):
+                self.callback(np.ones((4410, 1), np.float32), 4410,
+                              SimpleNamespace(inputBufferAdcTime=10.), False)
+                return self
+            def __exit__(self, *args):
+                pass
+
+        class Recognizer:
+            def create_stream(self):
+                return SimpleNamespace(accept_waveform=lambda rate, samples: received.append((rate, len(samples))))
+            def is_ready(self, stream):
+                return False
+            def get_result(self, stream):
+                return "我们确认月底交付"
+            def is_endpoint(self, stream):
+                return True
+            def reset(self, stream):
+                stop.set()
+
+        with patch("sentinel_live.build_recognizer", return_value=Recognizer()), \
+                patch("sounddevice.InputStream", side_effect=Capture):
+            run(create_parser().parse_args([]), on_event=lambda **evt: events.append(evt), stop_event=stop)
+        self.assertEqual((opened[0]['device'], opened[0]['samplerate'], opened[0]['blocksize']), (7, 44100, 4410))
+        self.assertEqual(received, [(44100, 4410)])
+        final = next(evt for evt in events if evt['kind'] == 'final')
+        self.assertEqual(final['text'], "我们确认月底交付")
+        self.assertAlmostEqual(final['end_s'], .1)
+        self.assertEqual(Path("logs/last-transcript.txt").read_text(encoding='utf-8'), final['text'])
 
     def test_microphone_closes_before_observer_and_log_closes_before_stopped(self):
         stop, order = threading.Event(), []
@@ -275,9 +388,17 @@ class RunLifecycleTests(unittest.TestCase):
         stop = threading.Event()
         stop.set()
         args = create_parser().parse_args([])
-        run(args, stop_event=stop)
-        run(args, stop_event=stop)
-        self.assertEqual(len(list(Path("logs").glob("session-*.jsonl"))), 2)
+        # A coarse or adjusted wall clock must not merge independent sessions.
+        with patch('sentinel_live.datetime', wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 11, 17, 12, 0, 0)
+            run(args, stop_event=stop)
+            run(args, stop_event=stop)
+        paths = list(Path("logs").glob("session-*.jsonl"))
+        self.assertEqual(len(paths), 2)
+        for path in paths:
+            rows = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()]
+            self.assertEqual(rows[0]['type'], 'session_start')
+            self.assertEqual(rows[-1]['type'], 'summary')
 
     def test_one_microphone_fans_out_identical_samples_and_capture_clock(self):
         import numpy as np

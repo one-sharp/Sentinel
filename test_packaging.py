@@ -29,11 +29,14 @@ class PackagingConfigTests(unittest.TestCase):
             self.assertEqual(config.api_settings()['LLM_API_KEY'],'')
         loader.assert_not_called()
     def test_developer_env_is_read_but_never_written(self):
-        before=(ROOT/'.env').read_bytes()
-        with patch.object(config,'FROZEN',False),patch('dotenv.load_dotenv') as loader:
+        env_path = self.path / '.env'
+        before = b'LLM_API_KEY=unit-test-only-key\nLLM_MODEL=test-model\n'
+        env_path.write_bytes(before)
+        with patch.object(config, 'FROZEN', False), patch.object(config, 'SOURCE_ROOT', self.path):
             config.load_api_environment()
-        loader.assert_called_once_with(ROOT/'.env')
-        self.assertEqual((ROOT/'.env').read_bytes(),before)
+        self.assertEqual(os.environ['LLM_API_KEY'], 'unit-test-only-key')
+        self.assertEqual(os.environ['LLM_MODEL'], 'test-model')
+        self.assertEqual(env_path.read_bytes(), before)
     def test_api_key_protected_roundtrip_and_saved_config_priority(self):
         secret='unit-test-only-key'
         def crypto(data,decrypt=False):return data[4:] if decrypt else b'ENC:'+data

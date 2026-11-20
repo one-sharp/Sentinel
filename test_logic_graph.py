@@ -10,6 +10,7 @@ import unittest
 
 from sentinel_logic import GraphDocument,GraphWorker
 from sentinel_logic_ui import display_nodes,layout_nodes,LogicGraphWindow
+from sentinel_graph_layout import layout_graph,NODE_WIDTH,NODE_HEIGHT,ROW_STEP
 
 ROOT=Path(__file__).resolve().parent
 
@@ -41,6 +42,15 @@ class DocumentTests(unittest.TestCase):
         self.doc.apply(dict(nodes=[n],edges=[]),self.doc.turns)
         self.assertEqual(self.doc.nodes['n1']['basis'],'inferred')
         self.assertEqual(self.doc.nodes['n1']['role'],'对方')
+    def test_action_never_becomes_a_completed_fact_even_in_history(self):
+        n=node(kind='action');n.update(title='我确认可接受的付款比例',basis='stated')
+        self.doc.apply(dict(nodes=[n],edges=[]),self.doc.turns)
+        self.assertEqual(self.doc.nodes['n1']['basis'],'inferred')
+        self.doc.save();restored=GraphDocument.load(self.doc.path)
+        self.assertEqual(restored.nodes['n1']['kind'],'action')
+        self.assertEqual(restored.nodes['n1']['basis'],'inferred')
+        with self.assertRaises(ValueError):
+            self.doc.apply(dict(nodes=[node('invented',quote='已经同意付款',kind='action')],edges=[]),self.doc.turns)
     def test_unknown_cannot_be_assigned_a_side_by_the_model(self):
         self.doc.observe(turn(1,'先付三成','我方','unknown'))
         self.doc.apply(dict(nodes=[node()],edges=[]),self.doc.turns)
@@ -76,12 +86,62 @@ class DocumentTests(unittest.TestCase):
         self.doc.apply(dict(nodes=[],edges=[],reviewed_turn_ids=[1,2]),self.doc.turns)
         self.assertEqual(self.doc.batch(),[])
         self.assertEqual(len(display_nodes(self.doc.snapshot())),2)
-    def test_lanes_and_topics_are_branches_not_one_column(self):
-        a=node();a.update(role='对方')
-        b=node('n2',2,'我还没有同意',kind='blocker');b.update(role='我方')
-        positions,bands=layout_nodes([a,b])
-        self.assertNotEqual(positions['n1'][0],positions['n2'][0])
-        self.assertEqual(len(bands),1)
+
+class LayoutTests(unittest.TestCase):
+    def nodes(self,count):
+        return [dict(id=str(i),kind='proposal',topic='付款' if i%2 else '交付',role='对方') for i in range(count)]
+
+    def edge(self,a,b):return dict(source=str(a),target=str(b))
+
+    def assert_no_overlaps(self,result):
+        boxes=list(result.positions.values())
+        for i,(x,y) in enumerate(boxes):
+            self.assertGreaterEqual(x,0);self.assertGreaterEqual(y,0)
+            self.assertLessEqual(x+NODE_WIDTH,result.width)
+            self.assertLessEqual(y+NODE_HEIGHT,result.height)
+            for xx,yy in boxes[i+1:]:
+                self.assertTrue(x+NODE_WIDTH<=xx or xx+NODE_WIDTH<=x or
+                                y+NODE_HEIGHT<=yy or yy+NODE_HEIGHT<=y)
+
+    def test_parallel_branches_merge_downward_regardless_of_role(self):
+        nodes=self.nodes(4);edges=[self.edge(a,b) for a,b in ((0,1),(0,2),(1,3),(2,3))]
+        result=layout_graph(nodes,edges)
+        self.assertEqual(result.positions['1'][1],result.positions['2'][1])
+        self.assertNotEqual(result.positions['1'][0],result.positions['2'][0])
+        for edge in edges:
+            self.assertGreater(result.positions[edge['target']][1],result.positions[edge['source']][1]+NODE_HEIGHT)
+        changed=[dict(n,role='我方') for n in nodes]
+        self.assertEqual(result.positions,layout_graph(changed,edges).positions)
+        self.assert_no_overlaps(result)
+        positions,bands=layout_nodes(nodes,edges)
+        self.assertEqual(positions,result.positions);self.assertEqual(len(bands),1)
+
+    def test_cycles_keep_evidence_links_and_outgoing_progress(self):
+        edges=[self.edge(a,b) for a,b in ((0,1),(1,2),(2,0),(1,3))]
+        result=layout_graph(self.nodes(4),edges)
+        self.assertEqual(result.cyclic_edges,{('0','1'),('1','2'),('2','0')})
+        self.assertGreater(result.positions['3'][1],result.positions['1'][1])
+        self.assert_no_overlaps(result)
+
+    def test_crowded_graph_keeps_all_nodes_readable_without_paging(self):
+        nodes=self.nodes(405);result=layout_graph(nodes)
+        self.assertEqual(len(result.positions),405)
+        self.assertLessEqual(len({x for x,_ in result.positions.values()}),4)
+        self.assert_no_overlaps(result)
+        extended=layout_graph(nodes+self.nodes(0),previous=result.positions)
+        self.assertEqual(result.positions,extended.positions)
+
+    def test_long_chain_uses_no_recursion_and_keeps_every_dependency(self):
+        result=layout_graph(self.nodes(1600),[self.edge(i,i+1) for i in range(1599)])
+        self.assertEqual(len(result.positions),1600)
+        for i in range(1599):
+            self.assertGreaterEqual(result.positions[str(i+1)][1]-result.positions[str(i)][1],ROW_STEP)
+
+    def test_incremental_sibling_keeps_existing_columns(self):
+        nodes=self.nodes(3);edges=[self.edge(0,1),self.edge(0,2)]
+        first=layout_graph(nodes,edges)
+        second=layout_graph(self.nodes(4),edges+[self.edge(0,3)],first.positions)
+        for ident in first.positions:self.assertEqual(first.positions[ident],second.positions[ident])
 
 
 class WorkerTests(unittest.TestCase):
@@ -128,15 +188,46 @@ class ViewTests(unittest.TestCase):
             doc=GraphDocument('view',directory=directory);doc.observe(turn(1,'先付三成'))
             doc.apply(dict(nodes=[node(kind='intent')],edges=[]),doc.turns)
             p=SimpleNamespace(root=root,topmost=tk.BooleanVar(root,value=False),logic_document=doc)
+            from sentinel_workspace import WorkspacePages
+            p.body=tk.Frame(root);p.body.pack(fill='both',expand=True)
+            p.layout_mode='compact'
+            p.show_window=root.deiconify
+            p.show_error=lambda text:self.fail(text)
+            p.pages=WorkspacePages(p)
+            p.open_page=lambda title,scroll=True,immersive=False:p.pages.create(title,scroll=scroll,immersive=immersive)
+            root.geometry('1000x700')
             view=LogicGraphWindow(p)
             try:
                 view.open(doc);root.update();view.inspect_node(doc.nodes['n1'])
                 text=view.inspector.get('1.0','end')
                 self.assertIn('推测',text);self.assertIn('先付三成',text);self.assertIn('4.0–7.0s',text)
                 self.assertGreater(len(view.canvas.find_all()),5)
-                view.scale(.8);view.fit();view.window.withdraw();view.open(doc)
+                long_node=node(kind='intent')
+                long_node.update(title='预算边界与采购审批都需要进一步确认',
+                                 text='这是需要完整显示边界且不能越过节点边框的中文摘要 WWWWWWWWWW')
+                doc.apply(dict(nodes=[long_node],edges=[]),doc.turns)
+                view.refresh();view.scale(.8/view.zoom);root.update()
+                items=view.canvas.find_withtag('node-n1')
+                bounds=view.canvas.bbox(next(i for i in items if view.canvas.type(i)=='polygon'))
+                for item in items:
+                    if view.canvas.type(item)!='text':continue
+                    box=view.canvas.bbox(item)
+                    self.assertGreaterEqual(box[0],bounds[0])
+                    self.assertLessEqual(box[2],bounds[2])
+                    self.assertGreaterEqual(box[1],bounds[1])
+                    self.assertLessEqual(box[3],bounds[3])
+                view.scale(.8);view.fit()
+                self.assertLessEqual(view.zoom,1.,'Overview must not enlarge sparse maps')
+                view.window.withdraw();view.open(doc)
                 self.assertEqual(view.selected,'n1')
                 from unittest.mock import patch
+                broken=Path(directory)/'broken.json';broken.write_text('{broken',encoding='utf-8')
+                view.hide_inspector()
+                with patch('sentinel_logic_ui.filedialog.askopenfilename',return_value=str(broken)):
+                    view.history()
+                root.update()
+                self.assertTrue(view.drawer.winfo_ismapped())
+                self.assertIn('历史图读取失败',view.inspector.get('1.0','end'))
                 with patch.object(doc,'snapshot',side_effect=AssertionError('No full copy on unchanged UI tick')):
                     view.refresh()
                 doc.observe(dict(kind='attribution_update',turn_id=1,speaker_id='unknown',role='未绑定'))
@@ -146,9 +237,12 @@ class ViewTests(unittest.TestCase):
                 doc.observe(dict(kind='attribution_update',turn_id=1,speaker_id='B',role='第三方'))
                 view.refresh();self.assertIn('图已更新',view.inspector.get('1.0','end'))
                 for i in range(2,402):doc.observe(turn(i,'长会话保留原话'))
-                view.refresh();self.assertEqual(view.page_text.get(),'1/2')
+                view.refresh();self.assertEqual(len(view.node_map),401)
                 self.assertIn('raw-1',view.node_map)
-                view.change_page(1);self.assertIn('raw-401',view.node_map)
+                self.assertIn('raw-401',view.node_map)
+                self.assertFalse(hasattr(view,'page_text'));self.assertFalse(hasattr(view,'topic'))
+                view.scale(.01);self.assertGreaterEqual(view.zoom,.8)
+                view.fit();self.assertGreaterEqual(view.zoom,.8)
             finally:root.destroy();gc.collect();gc.enable()
 
 

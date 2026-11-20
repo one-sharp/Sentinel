@@ -1,13 +1,17 @@
-"""Interactive multi-lane graph, with original audio-time evidence on selection."""
-import textwrap
+"""One downward, branching graph; selection reveals original audio-time evidence."""
 import unicodedata
 import tkinter as tk
-from tkinter import ttk,filedialog
-from sentinel_ui import BG,TEXT,MUTED,GREEN,AMBER,BUTTON,FONT
+from tkinter import font as tkfont
+from tkinter import filedialog
+from sentinel_ui import button
+from sentinel_theme import BG,TEXT,MUTED,SUCCESS,WARNING,FONT,CARD,BORDER,ACCENT_SOFT,ACCENT
+from sentinel_scroll import attach_scrollbars
 from sentinel_logic import GraphDocument,KINDS,graph_dir
 
-LANES={'我方':0,'多方':1,'对方':2,'第三方':3,'未绑定':3}
-STAGES={'issue':0,'intent':1,'proposal':2,'position':2,'condition':3,'question':3,'blocker':4,'progress':5,'resolution':5,'turn':6}
+from sentinel_graph_layout import layout_graph, NODE_WIDTH, NODE_HEIGHT, ROW_STEP
+
+MIN_ZOOM = .8
+MAX_ZOOM = 1.6
 
 
 def preview(text, width=28, lines=3):
@@ -21,92 +25,146 @@ def preview(text, width=28, lines=3):
     return '\n'.join(rows)
 
 
-def display_nodes(snapshot):
-    nodes=list(snapshot['nodes'])
-    used={ref['turn_id'] for node in nodes for ref in node['evidence']}
-    for turn in snapshot['turns']:
-        if turn['turn_id'] not in used:
-            nodes.append({'id':f"raw-{turn['turn_id']}",'kind':'turn','topic':'尚未归纳的原话',
-                          'role':turn['role'],'basis':'stated','title':turn['text'],'text':turn['text'],
-                          'evidence':[{'turn_id':turn['turn_id'],'quote':turn['text']}]})
-    return nodes
+def fit_preview(text, measure, width, lines=1):
+    """Fit glyphs at their actual rendered size, including the ellipsis."""
+    remaining=' '.join(text.split());rows=[]
+    for index in range(lines):
+        if measure(remaining)<=width:
+            rows.append(remaining);break
+        suffix='…' if index==lines-1 else ''
+        low,high=0,len(remaining)
+        while low<high:
+            middle=(low+high+1)//2
+            if measure(remaining[:middle]+suffix)<=width:low=middle
+            else:high=middle-1
+        rows.append(remaining[:low]+suffix)
+        remaining=remaining[low:].lstrip()
+    return '\n'.join(rows)
 
 
-def layout_nodes(nodes):
-    """Columns are roles, grouped in topic bands and semantic stages, not time."""
-    positions={};y=130
-    topics=list(dict.fromkeys(n['topic'] for n in nodes))
-    bands=[]
-    for topic in topics:
-        start=y
-        selected=[n for n in nodes if n['topic']==topic]
-        for stage in sorted({STAGES[n['kind']] for n in selected}):
-            buckets={lane:[n for n in selected if STAGES[n['kind']]==stage and LANES.get(n['role'],3)==lane] for lane in range(4)}
-            rows=max(map(len,buckets.values()))
-            for lane,bucket in buckets.items():
-                for row,node in enumerate(bucket):positions[node['id']]=(30+lane*300,y+row*156)
-            y+=rows*156
-        bands.append((topic,start-28,y-8));y+=55
-    return positions,bands
+from sentinel_graph_layout import display_nodes
+
+
+def layout_nodes(nodes, edges=()):
+    """Compatibility entry point: geometry follows dependencies, never roles."""
+    result=layout_graph(nodes, edges)
+    return result.positions,[('全局推进',70,result.height-36)]
 
 
 class LogicGraphWindow:
     def __init__(self,panel):
         self.panel=panel;self.window=None;self.doc=None;self.historical=False
-        self.zoom=.8;self.signature=None;self.selected=None
-        self.page=0;self.base_status=''
+        self.zoom=1.;self.signature=None;self.selected=None
+        self.base_status='';self._positions={};self._snapshot=None
 
     def open(self,doc):
-        self.doc=doc;self.historical=False;self.signature=None;self.page=0
+        if self.doc is not doc:
+            self._positions={};self.selected=None;self._snapshot=None
+        self.doc=doc;self.historical=False;self.signature=None
         if self.window is None or not self.window.winfo_exists():self._build()
         self.window.deiconify();self.window.lift();self.refresh()
 
     def _build(self):
-        w=self.window=tk.Toplevel(self.panel.root)
-        w.title('Sentinel 哨兵 · 对话逻辑图')
-        w.geometry(f'{min(1280,w.winfo_screenwidth()-80)}x{min(850,w.winfo_screenheight()-100)}')
-        w.minsize(900,600);w.configure(bg=BG)
-        w.attributes('-topmost',self.panel.topmost.get())
-        w.protocol('WM_DELETE_WINDOW',w.withdraw)
-        box=ttk.Frame(w,padding=14);box.pack(fill='both',expand=True)
-        top=ttk.Frame(box);top.pack(fill='x')
-        ttk.Label(top,text='对话逻辑图',font=(FONT,20,'bold')).pack(side='left')
-        ttk.Button(top,text='打开历史图',command=self.history).pack(side='right')
-        ttk.Button(top,text='回到本场',command=self.current).pack(side='right',padx=6)
-        self.retry_button=ttk.Button(top,text='更新 / 重试',command=self.retry);self.retry_button.pack(side='right')
-        self.status=tk.StringVar();ttk.Label(box,textvariable=self.status,wraplength=1150,foreground=MUTED).pack(fill='x',pady=(8,4))
-        ttk.Label(box,text='实线：有原话依据   ·   虚线：意图推测 / 待核实   ·   橙色：卡点   ·   点击方框或箭头看证据',foreground=GREEN).pack(anchor='w')
+        w=self.window=self.panel.open_page('全局逻辑图', scroll=False, immersive=True)
+        self.dpi=w.winfo_fpixels('1i')/96
+        self.unit=lambda value:round(value*self.dpi)
+        bar=tk.Frame(w,bg=BG)
+        bar.pack(fill='x',pady=(0,self.unit(8)))
+        button(bar,'‹ 提醒',self.window.withdraw).pack(side='left',padx=(0,8))
+        self.status=tk.StringVar()
+        status=tk.Label(bar,textvariable=self.status,bg=BG,fg=MUTED,font=(FONT,8),cursor='hand2')
+        status.pack(side='left',padx=12)
+        status.bind('<Button-1>',lambda event:self.show_info())
+        button(bar,'更多 ···',self.more).pack(side='right')
+        button(bar,'依据',self.toggle_inspector).pack(side='right',padx=4)
+        button(bar,'总览',self.fit).pack(side='right')
+        self.retry_button=button(bar,'刷新',self.retry)
+        self.retry_button.pack(side='right',padx=4)
         self.situation=tk.StringVar()
-        ttk.Label(box,textvariable=self.situation,wraplength=1150,foreground=AMBER,font=(FONT,11,'bold')).pack(fill='x',pady=(6,0))
-        tools=ttk.Frame(box);tools.pack(fill='x',pady=8)
-        ttk.Label(tools,text='议题').pack(side='left')
-        self.topic=tk.StringVar(value='全部议题')
-        self.topics=ttk.Combobox(tools,textvariable=self.topic,state='readonly',width=25)
-        self.topics.pack(side='left',padx=8);self.topics.bind('<<ComboboxSelected>>',self.select_topic)
-        for label,command in (('－',lambda:self.scale(.8)),('＋',lambda:self.scale(1.25)),('适应宽度',self.fit),('全图',self.overview)):
-            ttk.Button(tools,text=label,command=command).pack(side='left',padx=3)
-        ttk.Button(tools,text='上一页',command=lambda:self.change_page(-1)).pack(side='left',padx=3)
-        self.page_text=tk.StringVar()
-        ttk.Label(tools,textvariable=self.page_text).pack(side='left')
-        ttk.Button(tools,text='下一页',command=lambda:self.change_page(1)).pack(side='left',padx=3)
-        ttk.Label(tools,text='滚轮上下浏览 · Shift+滚轮左右 · 中键拖动',foreground=MUTED).pack(side='right')
-        split=ttk.Panedwindow(box,orient='horizontal');split.pack(fill='both',expand=True)
-        left=ttk.Frame(split);right=ttk.Frame(split,width=300)
-        split.add(left,weight=4);split.add(right,weight=1)
-        self.canvas=tk.Canvas(left,bg='#0C1722',highlightthickness=0)
-        vertical=ttk.Scrollbar(left,orient='vertical',command=self.canvas.yview)
-        horizontal=ttk.Scrollbar(left,orient='horizontal',command=self.canvas.xview)
-        self.canvas.configure(yscrollcommand=vertical.set,xscrollcommand=horizontal.set)
-        vertical.pack(side='right',fill='y');horizontal.pack(side='bottom',fill='x');self.canvas.pack(fill='both',expand=True)
-        self.canvas.bind('<MouseWheel>',lambda e:self.canvas.yview_scroll(-int(e.delta/120),'units'))
-        self.canvas.bind('<Shift-MouseWheel>',lambda e:self.canvas.xview_scroll(-int(e.delta/120),'units'))
+        self.viewport=tk.Frame(w,bg=CARD,highlightbackground=BORDER,highlightthickness=1)
+        self.viewport.pack(fill='both',expand=True)
+        self.canvas=tk.Canvas(self.viewport,bg=CARD,highlightthickness=0,bd=0,takefocus=True)
+        self.canvas.pack(fill='both',expand=True)
+        self.scrollbars=attach_scrollbars(self.canvas,horizontal=True,wheel=True)
         self.canvas.bind('<ButtonPress-2>',lambda e:self.canvas.scan_mark(e.x,e.y))
         self.canvas.bind('<B2-Motion>',lambda e:self.canvas.scan_dragto(e.x,e.y,gain=1))
-        ttk.Label(right,text='原话与依据',font=(FONT,13,'bold')).pack(anchor='w',pady=(0,8))
-        self.inspector=tk.Text(right,width=30,wrap='word',font=(FONT,10),bg=BUTTON,fg=TEXT,bd=0,padx=12,pady=10,state='disabled')
-        scroll=ttk.Scrollbar(right,command=self.inspector.yview);self.inspector.configure(yscrollcommand=scroll.set)
-        scroll.pack(side='right',fill='y');self.inspector.pack(fill='both',expand=True)
-        self._inspect('点击节点查看角色、判断依据、音频起止时间及逐字原文。\n\n没有证据时，系统不会将推测显示为双方已达成的共识。')
+        self.canvas.bind('<ButtonPress-1>',self.pan_start)
+        self.canvas.bind('<B1-Motion>',self.pan_move)
+        self.canvas.bind('<ButtonRelease-1>',lambda e:setattr(self,'_panning',False))
+        self._zoom_delta=0
+        self.canvas.bind('<Control-MouseWheel>',self.zoom_wheel)
+        self.canvas.bind('<Left>',lambda e:self.canvas.xview_scroll(-1,'units'))
+        self.canvas.bind('<Right>',lambda e:self.canvas.xview_scroll(1,'units'))
+        self.canvas.bind('<Up>',lambda e:self.canvas.yview_scroll(-1,'units'))
+        self.canvas.bind('<Down>',lambda e:self.canvas.yview_scroll(1,'units'))
+        self.canvas.bind('<Configure>',self.canvas_resized)
+        zoom=tk.Frame(self.viewport,bg=CARD,highlightbackground=BORDER,highlightthickness=1)
+        zoom.place(x=self.unit(14),rely=1,y=-self.unit(14),anchor='sw')
+        button(zoom,'−',lambda:self.scale(.8)).pack(side='left')
+        self.zoom_text=tk.StringVar(value='100%')
+        tk.Label(zoom,textvariable=self.zoom_text,bg=CARD,fg=MUTED,font=(FONT,8),width=5).pack(side='left')
+        button(zoom,'＋',lambda:self.scale(1.25)).pack(side='left')
+        self.drawer=tk.Frame(self.viewport,bg=CARD,padx=self.unit(16),pady=self.unit(12),
+                             highlightbackground=BORDER,highlightthickness=1)
+        heading=tk.Frame(self.drawer,bg=CARD);heading.pack(fill='x',pady=(0,12))
+        tk.Label(heading,text='原话与依据',bg=CARD,fg=TEXT,font=(FONT,10,'bold')).pack(side='left')
+        button(heading,'×',self.hide_inspector).pack(side='right')
+        self.inspector=tk.Text(self.drawer,width=24,wrap='word',font=(FONT,10),bg=CARD,fg=TEXT,
+                               bd=0,padx=0,pady=0,state='disabled')
+        self.inspector.pack(fill='both',expand=True)
+        attach_scrollbars(self.inspector)
+        self._inspect('点击节点或连线，查看原话与音频时间。')
+        self._fit_on_resize=True
+        self._panning=False
+
+    def show_inspector(self):
+        width=min(self.unit(300),max(self.unit(230),round(self.viewport.winfo_width()*.32)))
+        self.drawer.place(relx=1,rely=0,anchor='ne',width=width,relheight=1)
+        self.drawer.lift()
+
+    def hide_inspector(self):
+        self.drawer.place_forget()
+        self.canvas.focus_set()
+
+    def toggle_inspector(self):
+        if self.drawer.winfo_manager():self.hide_inspector()
+        else:self.show_inspector()
+
+    def more(self):
+        menu=tk.Menu(self.window,tearoff=False,font=(FONT,9))
+        for title,command in (('回到本场',self.current),('打开历史图',self.history),
+                              ('总览',self.fit),('操作与图例',self.show_info)):
+            menu.add_command(label=title,command=command)
+        try:menu.tk_popup(self.window.winfo_pointerx(),self.window.winfo_pointery())
+        finally:menu.grab_release();menu.destroy()
+
+    def show_info(self):
+        self._inspect(self.base_status+'\n\n本场目标（未必已说出口）：'+self.doc.snapshot()['goal']+'\n\n'+self.situation.get()+
+                      '\n\n拖动画布空白处浏览；滚轮上下，Shift+滚轮左右，Ctrl+滚轮缩放。'+
+                      '\n\n从上往下看推进，横向看并行事项。\n实线：有原话依据\n虚线：下一步建议 / 推测 / 待核实\n橙色：当前卡点'+
+                      '\n回指关系沿节点侧边绘制，不作为已完成步骤。\n字号保持可读，内容较多时平移浏览。'+
+                      '\n\nAI 归纳需核对原话。私人笔记不参与图分析。')
+        self.show_inspector()
+
+    def pan_start(self,event):
+        current=self.canvas.gettags('current')
+        self._panning=not any(tag.startswith(('node-','edge-')) for tag in current)
+        self.canvas.focus_set()
+        if self._panning:self.canvas.scan_mark(event.x,event.y)
+
+    def pan_move(self,event):
+        if self._panning:self.canvas.scan_dragto(event.x,event.y,gain=1)
+
+    def zoom_wheel(self,event):
+        self._zoom_delta+=event.delta
+        steps=int(self._zoom_delta/120)
+        self._zoom_delta-=steps*120
+        if steps:self.scale(1.15**steps)
+        return 'break'
+
+    def canvas_resized(self,event):
+        if self._fit_on_resize and self.doc is not None:self.fit(reset=False)
+        if not getattr(self,'node_map',{}):self.render()
 
     def refresh(self):
         if not self.window or not self.window.winfo_exists() or self.window.state()=='withdrawn' or self.doc is None:return
@@ -116,10 +174,10 @@ class LogicGraphWindow:
             signature=(id(self.doc),self.doc.revision)
             status,count=self.doc.status,len(self.doc.turns)
         self.base_status=('历史图 · ' if self.historical else '本场 · ')+status+f"  |  已确认 {count} 段"
-        self.status.set(self.base_status)
+        self.status.set(('历史图' if self.historical else '本场')+f' · {count} 段')
         self.retry_button.configure(state='disabled' if self.historical else 'normal')
         if signature!=self.signature:
-            snap=self.doc.snapshot()
+            snap=self._snapshot=self.doc.snapshot()
             self.signature=signature
             resolved={e['source'] for e in snap['edges'] if e['relation']=='解决'
                       and any(n['id']==e['target'] and n['kind']=='resolution' for n in snap['nodes'])}
@@ -127,13 +185,11 @@ class LogicGraphWindow:
             progress=[n['title'] for n in snap['nodes'] if n['kind'] in ('progress','resolution')]
             self.situation.set('图中卡点（AI归纳）｜'+('；'.join(blockers[-3:]) or '尚无已归纳的卡点')+
                                '     进展｜'+('；'.join(progress[-2:]) or '等待明确进展'))
-            topics=['全部议题']+list(dict.fromkeys(n['topic'] for n in display_nodes(snap)))
-            self.topics.configure(values=topics)
-            if self.topic.get() not in topics:self.topic.set('全部议题')
+            self._resolved=resolved
             self.render()
             if self.selected:
                 current=self.node_map.get(self.selected)
-                if current:self.inspect_node(current)
+                if current:self.inspect_node(current,reveal=False)
                 else:
                     self.selected=None
                     self._inspect('原文或归属已更新，所选旧判断已失效。请点击当前图中的节点重新查看依据。')
@@ -142,47 +198,86 @@ class LogicGraphWindow:
 
     def render(self):
         if self.doc is None:return
-        snap=self.doc.snapshot();nodes=display_nodes(snap)
-        if self.topic.get()!='全部议题':nodes=[n for n in nodes if n['topic']==self.topic.get()]
-        # Bound draw work, while keeping every earlier node reachable.
-        pages=max(1,(len(nodes)+399)//400);self.page=max(0,min(self.page,pages-1))
-        self.page_text.set(f'{self.page+1}/{pages}')
-        nodes=nodes[self.page*400:(self.page+1)*400]
-        self.status.set(self.base_status+(f' · 图分{pages}页，每页最多400节点' if pages>1 else ''))
+        snap=self._snapshot or self.doc.snapshot();nodes=display_nodes(snap)
+        self.zoom_text.set(f'{round(self.zoom*100)}%')
         self.node_map={n['id']:n for n in nodes}
-        positions,bands=layout_nodes(nodes);c=self.canvas;c.delete('all');z=self.zoom
-        for i,label in enumerate(('我方的立场 / 意图','议题、矛盾与推进','对方的立场 / 意图','未知 / 第三方')):
-            c.create_text((150+i*300)*z,22*z,text=label,fill=GREEN if i==0 else MUTED,font=(FONT,max(8,int(12*z)),'bold'))
-        c.create_rectangle(330*z,48*z,870*z,106*z,outline=GREEN,fill='#17343A')
-        c.create_text(600*z,77*z,text='本次用户目标（未必已说出口）\n'+preview(snap['goal'] or '尚未填写目标',70,1),fill=TEXT,font=(FONT,max(8,int(10*z))))
-        for topic,top,bottom in bands:
-            c.create_line(15*z,top*z,1210*z,top*z,fill='#314956')
-            c.create_text(22*z,(top-12)*z,text=topic,anchor='w',fill=MUTED,font=(FONT,max(8,int(11*z)),'bold'))
+        geometry=layout_graph(nodes,snap['edges'],self._positions)
+        positions=self._positions=geometry.positions
+        c=self.canvas;left=max(0,c.canvasx(0));top=max(0,c.canvasy(0));c.delete('all')
+        # Tk point fonts already follow system DPI. Only geometry also needs dpi.
+        z=self.zoom*self.dpi
+        font=lambda size,bold=False:(FONT,max(8,round(size*self.zoom)),*(['bold'] if bold else []))
+        measured_fonts={}
+        def bounded(text, font_spec, lines=1):
+            if font_spec not in measured_fonts:
+                measured_fonts[font_spec]=tkfont.Font(root=c,font=font_spec)
+            return fit_preview(text,measured_fonts[font_spec].measure,(NODE_WIDTH-24)*z,lines)
+        if not nodes:
+            width,height=max(1,c.winfo_width()),max(1,c.winfo_height())
+            c.configure(scrollregion=(0,0,width,height))
+            c.create_text(width/2,height/2-12,text='把注意力留给对话',fill=TEXT,font=(FONT,13))
+            c.create_text(width/2,height/2+24,text='确认的原话会先出现，再逐步归纳为分支和推进关系',fill=MUTED,font=(FONT,9))
+            return
+        c.create_text(30*z,16*z,anchor='nw',text='本场目标 · 用户设定，不代表已达成',fill=MUTED,font=font(8))
+        c.create_text(30*z,36*z,anchor='nw',text=preview(snap['goal'] or '尚未设置目标',76,1),fill=TEXT,font=font(10,True))
+        side_routes=False
         for index,edge in enumerate(snap['edges']):
             if edge['source'] not in positions or edge['target'] not in positions:continue
             x1,y1=positions[edge['source']];x2,y2=positions[edge['target']]
-            if x1==x2:
-                points=[x1+250,y1+56,x1+272,y1+56,x2+272,y2+56,x2+250,y2+56]
+            cyclic=(edge['source'],edge['target']) in geometry.cyclic_edges
+            if cyclic or y2-y1>ROW_STEP:
+                # Rebuttals may point back. Route outside the cards rather than
+                # inventing a forward dependency or dropping the original link.
+                side_routes=True;side=geometry.width-12+(index%3)*10
+                exit_y=y1+NODE_HEIGHT+16;enter_y=y2-16
+                points=[x1+NODE_WIDTH/2,y1+NODE_HEIGHT,x1+NODE_WIDTH/2,exit_y,
+                        side,exit_y,side,enter_y,x2+NODE_WIDTH/2,enter_y,x2+NODE_WIDTH/2,y2]
+                label_x,label_y=side+6,(exit_y+enter_y)/2
             else:
-                a=x1+250 if x2>x1 else x1;b=x2 if x2>x1 else x2+250
-                mid=(a+b)/2;points=[a,y1+56,mid,y1+56,mid,y2+56,b,y2+56]
+                a=x1+NODE_WIDTH/2;b=x2+NODE_WIDTH/2
+                mid=(y1+NODE_HEIGHT+y2)/2
+                points=[a,y1+NODE_HEIGHT,a,mid,b,mid,b,y2]
+                label_x,label_y=(a+b)/2,mid-9
             tag='edge-'+str(index)
-            c.create_line(*[v*z for v in points],fill=AMBER if edge['relation'] in ('卡住','反驳') else '#7897AA',arrow='last',width=2,tags=tag)
-            c.create_text(((x1+x2)/2+125)*z,((y1+y2)/2+45)*z,text=edge['relation'],fill=AMBER,font=(FONT,max(8,int(9*z))),tags=tag)
+            color=WARNING if edge['relation'] in ('卡住','反驳') else '#AAB6BE'
+            inferred=any(self.node_map[ident]['basis']!='stated' for ident in (edge['source'],edge['target']))
+            c.create_line(*[v*z for v in points],fill=color,arrow='last',width=max(1,z),
+                          arrowshape=(7*z,9*z,3*z),dash=(4,4) if inferred else (),tags=tag)
+            c.create_text(label_x*z,label_y*z,text=edge['relation'],fill=MUTED,font=font(8),tags=tag)
             c.tag_bind(tag,'<Button-1>',lambda e,item=edge:self.inspect_edge(item))
         for node in nodes:
-            x,y=positions[node['id']];color=AMBER if node['kind']=='blocker' else (GREEN if node['role']=='我方' or node['kind']=='resolution' else '#6B9AC4')
-            dashed=node['basis']!='stated'
+            x,y=positions[node['id']]
+            blocked=node['kind']=='blocker' and node['id'] not in getattr(self,'_resolved',set())
+            color=WARNING if blocked else (SUCCESS if node['kind'] in ('progress','resolution') else MUTED)
+            dashed=node['basis']!='stated';action=node['kind']=='action'
             tag='node-'+node['id']
-            c.create_rectangle(x*z,y*z,(x+250)*z,(y+120)*z,fill='#17303B',outline=color,width=2,dash=(5,3) if dashed else (),tags=tag)
-            badge=KINDS.get(node['kind'],'原话')+' · '+node['role']+(' · 待核实' if node['basis']=='uncertain' else '')
-            if z>=.6:c.create_text((x+12)*z,(y+16)*z,anchor='w',text=badge,fill=color,font=(FONT,max(8,int(9*z))),tags=tag)
-            c.create_text((x+12)*z,(y+(34 if z>=.6 else 20))*z,anchor='nw',text=preview(node['title'],28 if z>=.6 else 16,3 if z>=.6 else 1),fill=TEXT,font=(FONT,max(7,int(11*z)),'bold'),tags=tag)
-            ids=', '.join('#'+str(r['turn_id']) for r in node['evidence'])
-            if z>=.6:c.create_text((x+12)*z,(y+106)*z,anchor='w',text='依据 '+ids[:35],fill=MUTED,font=(FONT,max(7,int(8*z))),tags=tag)
+            r=8;right=x+NODE_WIDTH;bottom=y+NODE_HEIGHT
+            points=[x+r,y,right-r,y,right,y,right,y+r,right,bottom-r,
+                    right,bottom,right-r,bottom,x+r,bottom,x,bottom,x,bottom-r,x,y+r,x,y]
+            c.create_polygon(*[v*z for v in points],smooth=True,splinesteps=16,
+                             fill=ACCENT_SOFT if blocked else CARD,
+                             outline=ACCENT if self.selected==node['id'] else (color if dashed else BORDER),width=1,
+                             dash=(4,3) if dashed else (),tags=tag)
+            role={'我方':'我','对方':'对方','未绑定':'身份未确认'}.get(node['role'],node['role'])
+            badge='下一步建议 · 尚未推进' if action else KINDS.get(node['kind'],'原话')+' · '+role
+            if node['basis']=='uncertain':badge+=' · 待核实'
+            c.create_text((x+12)*z,(y+14)*z,anchor='w',text=bounded(badge,font(8)),fill=color,font=font(8),tags=tag)
+            title=c.create_text((x+12)*z,(y+28)*z,anchor='nw',text=bounded(node['title'],font(10,True),2),fill=TEXT,font=font(10,True),tags=tag)
+            # Core summaries stay visible; duplicate text and evidence IDs do
+            # not consume a second row. Exact quotes remain in the inspector.
+            if node['text'].strip()!=node['title'].strip():
+                title_bottom=c.bbox(title)[3]/z
+                body_y=max(y+52,title_bottom+3)
+                body=c.create_text((x+12)*z,body_y*z,anchor='nw',text=bounded(node['text'],font(9)),fill=MUTED,font=font(9),tags=tag)
+                # Unusual system fonts can be taller. Keep the body inside the
+                # card instead of letting it collide with the next graph row.
+                if c.bbox(body)[3]>(bottom-8)*z:
+                    c.itemconfigure(title,text=bounded(node['title'],font(10,True)))
+                    c.coords(body,(x+12)*z,(y+52)*z)
             c.tag_bind(tag,'<Button-1>',lambda e,item=node:self.inspect_node(item))
-        c.configure(scrollregion=(0,0,1240*z,max(240,(bands[-1][2]+60) if bands else 300)*z))
-        if not nodes:c.create_text(600*z,170*z,text='等待已确认语音。开始监听后，图会增量更新。',fill=MUTED,font=(FONT,12))
+        width=(geometry.width+(48 if side_routes else 0))*z;height=geometry.height*z
+        c.configure(scrollregion=(0,0,max(c.winfo_width(),width),max(c.winfo_height(),height)))
+        c.xview_moveto(left/max(c.winfo_width(),width));c.yview_moveto(top/max(c.winfo_height(),height))
 
     def _inspect(self,text):
         self.inspector.configure(state='normal');self.inspector.delete('1.0','end');self.inspector.insert('1.0',text);self.inspector.configure(state='disabled')
@@ -194,32 +289,55 @@ class LogicGraphWindow:
             parts.append(f"#{ref['turn_id']}  {t.get('start_s',0):.1f}–{t.get('end_s',0):.1f}s\n{t.get('speaker_id','unknown')} / {t.get('role','未绑定')}\n摘录：{ref['quote']}\n原文：{t.get('text','')}\n")
         return '\n'.join(parts)
 
-    def inspect_node(self,node):
+    def inspect_node(self,node,*,reveal=True):
         self.selected=node['id']
+        if reveal:self.show_inspector()
         basis={'stated':'基于原话的分析，请核对原文','inferred':'意图/关系推测，不能当作事实','uncertain':'待核实，不作为已达成结果'}[node['basis']]
+        if node['kind']=='action':basis='下一步建议，尚未推进；不是已说出的承诺或已达成的事实'
         self._inspect(f"{node['title']}\n\n{node['text']}\n\n{basis}\n角色：{node['role']}\n议题：{node['topic']}\n\n"+self.evidence_text(node['evidence']))
 
     def inspect_edge(self,edge):
         self.selected=None
+        self.show_inspector()
         self._inspect('关系：'+edge['relation']+'（AI 对原话关系的归纳）\n\n'+self.evidence_text(edge['evidence']))
-    def scale(self,factor):self.zoom=max(.45,min(1.6,self.zoom*factor));self.render()
-    def fit(self):self.zoom=max(.45,min(1.2,self.canvas.winfo_width()/1240));self.render();self.canvas.xview_moveto(0);self.canvas.yview_moveto(0)
+    def scale(self,factor):
+        self._fit_on_resize=False
+        self.zoom=max(MIN_ZOOM,min(MAX_ZOOM,self.zoom*factor));self.render()
+
+    def fit(self,*,reset=True):
+        self._fit_on_resize=True
+        if self.doc is None:return
+        snap=self._snapshot or self.doc.snapshot()
+        geometry=layout_graph(display_nodes(snap),snap['edges'],self._positions)
+        side_routes=bool(geometry.cyclic_edges) or any(
+            e['source'] in geometry.positions and e['target'] in geometry.positions and
+            geometry.positions[e['target']][1]-geometry.positions[e['source']][1]>ROW_STEP
+            for e in snap['edges'])
+        width=geometry.width+(48 if side_routes else 0)
+        # Sparse maps must not balloon to fill the window. Fit their structure
+        # when readable; long maps use scrolling instead of tiny text.
+        self.zoom=max(MIN_ZOOM,min(1.,
+                      (self.canvas.winfo_width()-self.unit(16))/(width*self.dpi),
+                      (self.canvas.winfo_height()-self.unit(12))/(geometry.height*self.dpi)))
+        self.render()
+        if reset:self.canvas.xview_moveto(0);self.canvas.yview_moveto(0)
+
     def overview(self):
-        nodes=display_nodes(self.doc.snapshot())
-        if self.topic.get()!='全部议题':nodes=[n for n in nodes if n['topic']==self.topic.get()]
-        nodes=nodes[self.page*400:(self.page+1)*400]
-        _,bands=layout_nodes(nodes);height=bands[-1][2]+60 if bands else 300
-        self.zoom=max(.25,min(1.2,self.canvas.winfo_width()/1240,self.canvas.winfo_height()/height))
-        self.render();self.canvas.xview_moveto(0);self.canvas.yview_moveto(0)
-    def change_page(self,delta):self.page+=delta;self.render();self.canvas.yview_moveto(0)
-    def select_topic(self,event):self.page=0;self.render();self.canvas.yview_moveto(0)
+        self.fit()
+
     def retry(self):
-        if not self.historical:self.panel.enable_logic_analysis();self.panel.logic_service.notify()
+        if not self.historical:
+            self.panel.enable_logic_analysis()
+            if self.panel.logic_service:self.panel.logic_service.notify()
     def current(self):
         if self.panel.logic_document:self.open(self.panel.logic_document)
     def history(self):
-        path=filedialog.askopenfilename(parent=self.window,initialdir=graph_dir(),filetypes=[('Sentinel逻辑图','*.json')])
+        path=filedialog.askopenfilename(parent=self.panel.root,initialdir=graph_dir(),filetypes=[('Sentinel逻辑图','*.json')])
         if path:
             try:
-                self.doc=GraphDocument.load(path);self.historical=True;self.signature=None;self.refresh()
-            except Exception as exc:self._inspect('历史图读取失败：'+str(exc))
+                self.doc=GraphDocument.load(path);self.historical=True;self.signature=None
+                self._positions={};self._snapshot=None;self.selected=None;self._fit_on_resize=True
+                self.refresh()
+            except Exception as exc:
+                self._inspect('历史图读取失败：'+str(exc))
+                self.show_inspector()

@@ -5,3 +5,4 @@ openai
 python-dotenv
 psutil
 scipy
+PySide6-Essentials==6.10.3

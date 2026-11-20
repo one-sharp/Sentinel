@@ -1,74 +1,18 @@
 """Tk desktop controls; microphone/model work stays off the Tk thread."""
 from __future__ import annotations
 
-import copy
 import logging
 import queue
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 from sentinel_ui import BG, CARD, TEXT, MUTED, GREEN, AMBER
+from sentinel_session import SessionController
+from sentinel_theme import ACCENT, ERROR, ALERT_TEXT
 SCENE_LABELS = {"合同谈判": "negotiation", "会议": "meeting", "纠纷": "dispute", "通用": "general"}
-
-
-class SessionController:
-    """Own one complete ASR + LLM session until its worker has actually exited."""
-
-    def __init__(self, args, runner):
-        self.args, self.runner = args, runner
-        self.events = queue.Queue()
-        self.thread = None
-        self.stop_event = None
-        self.session_id = None
-
-    @property
-    def busy(self):
-        return self.thread is not None
-
-    def start(self, scene, enrollment=False):
-        if self.busy:
-            return False
-        args = copy.copy(self.args)
-        from sentinel_desktop import new_session_id
-        self.session_id = new_session_id()
-        args.scene = scene
-        args.enroll_only = enrollment
-        args.controls = queue.Queue()
-        self.controls = args.controls
-        self.stop_event = threading.Event()
-        self.thread = threading.Thread(target=self._worker, args=(args, self.stop_event),
-                                       daemon=False, name="sentinel-asr")
-        try:
-            self.thread.start()
-        except Exception:
-            self.thread = None
-            raise
-        return True
-
-    def _worker(self, args, stop_event):
-        try:
-            self.runner(args, on_event=lambda **evt: self.events.put(evt), stop_event=stop_event)
-        except Exception as exc:
-            logging.exception("Sentinel session failed")
-            self.events.put({"kind": "fatal", "text": str(exc)})
-
-    def stop(self):
-        if self.stop_event is not None:
-            self.stop_event.set()
-
-    def send(self, **command):
-        if self.busy:
-            self.controls.put(command)
-
-    def reap(self):
-        # Drain callbacks before allowing a new session to receive events.
-        if self.thread is not None and not self.thread.is_alive() and self.events.empty():
-            self.thread.join()
-            self.thread = None
-            return True
-        return False
 
 
 class SentinelPanel:
@@ -80,6 +24,7 @@ class SentinelPanel:
         self.enrolling = False
         self.enrollment_saved = False
         self.turns = {}
+        self.turn_view_revision = 0
         self.speaker_roles = {"unknown": "未绑定"}
         self.settings = None
         self.speakers = tk.BooleanVar(value=getattr(args, "speakers", False))
@@ -99,14 +44,18 @@ class SentinelPanel:
         self.native_shutdown = False
         self.hidden = False
         self.layout_mode = "compact"
+        self.unread_alert = False
+        self.recent_alerts = []
         self.previous_mode = "compact"
         self.phase = "待机"
         self.mic_on = False
+        self.mic_started = None
         self.status_cache = None
         self.standby_id = new_session_id() + "-standby"
         self.current_log = None
         self.desktop_settings_window = None
-        self.topmost = tk.BooleanVar(value=self.preferences.value["topmost"])
+        self.topmost = tk.BooleanVar(value=self.preferences.value['topmost'])
+        self.translucent = tk.BooleanVar(value=self.preferences.value['translucent'])
         self.goal = tk.StringVar(value=getattr(args, "goal", ""))
         if not self.goal.get():
             try:
@@ -115,7 +64,18 @@ class SentinelPanel:
                 self.goal.set(DEFAULTS["EVENT_GOAL"])
         self.api_window = None
         self.api_check_thread = None
-        self.notes = NoteComposer(root, self.note_store, self.note_context, self.show_error)
+        self.audio_check_thread = None
+        self.audio_status = tk.StringVar(value="使用系统默认麦克风；开始监听时自动检查。")
+        self.audio_device = ""
+        self.notes = NoteComposer(root, self.note_store, self.note_context, self.show_error, page_factory=self.open_page)
+        from sentinel_briefing import ConversationBrief
+        from sentinel_knowledge import KnowledgeCatalog
+        from sentinel_knowledge_ui import KnowledgeWindow
+        self.briefing = ConversationBrief()
+        self.source_epoch = 0
+        self.knowledge_catalog = KnowledgeCatalog()
+        self.knowledge_window = KnowledgeWindow(root, self.knowledge_catalog,
+                                                on_change=self.refresh_knowledge, on_error=self.show_error, page_factory=self.open_page)
         self.logic_document = None
         self.logic_service = None
         self.logic_window = None
@@ -124,6 +84,8 @@ class SentinelPanel:
         root.report_callback_exception = self.callback_error
         from sentinel_ui import build_view
         build_view(self, args, ASSETS_DIR, logs_dir, SCENE_LABELS)
+        from sentinel_workspace import WorkspacePages
+        self.pages = WorkspacePages(self)
         root.bind("<Configure>", self.resize_layout)
         root.bind("<Destroy>", self.cancel_poll, add="+")
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -180,55 +142,100 @@ class SentinelPanel:
 
     def resize_layout(self, event):
         if event.widget is self.root:
-            width = max(280, event.width-105)
-            for label in (self.headline, self.evidence, self.action, self.error_label, self.speaker_label):
-                label.configure(wraplength=width)
-            for label in (self.goal_summary,self.latest_label,self.log_label,self.notice_label):
-                label.configure(wraplength=max(280,event.width-60))
+            width = max(round(280*self.ui_scale), event.width-round(360*self.ui_scale))
+            for label in (self.goal_summary, self.latest_label, self.log_label,
+                          self.notice_label, self.error_label, self.speaker_label):
+                label.configure(wraplength=max(round(280*self.ui_scale), event.width-round(60*self.ui_scale)))
             self.schedule_chrome()
-            self.schedule_fit()
 
     def schedule_fit(self):
-        if self._fit_job is None:
-            self._fit_job = self.root.after(40,self.fit_content)
+        # The workspace uses bounded scroll areas rather than growing to fit text.
+        return
 
     def fit_content(self):
-        self._fit_job = None
-        if self.layout_mode=='bar' or not self.root.winfo_ismapped():
-            return
-        def padding(widget):
-            value = widget.pack_info().get('pady',0)
-            values = value if isinstance(value,(tuple,list)) else widget.tk.splitlist(str(value))
-            return int(values[0])*2 if len(values)==1 else sum(map(int,values))
-        # Requested label sizes are stable before the first native resize.
-        # Measuring the Canvas's current height here can see an initial 1px
-        # placeholder and incorrectly grow the floating window on startup.
-        needed = 38+sum(widget.winfo_reqheight()+padding(widget)
-                        for widget in self.card_shell.inner.pack_slaves())
-        if self.layout_mode=='detail':
-            self.card_shell.configure(height=max(260,needed))
-        else:
-            fixed = 26+sum(widget.winfo_reqheight()+padding(widget)
-                           for widget in self.outer.pack_slaves() if widget is not self.body)
-            fixed += sum(widget.winfo_reqheight()+padding(widget)
-                         for widget in self.body.pack_slaves() if widget is not self.card_shell)
-            fixed += padding(self.card_shell)
-            minimum = min(self.root.winfo_screenheight()-80,max(420,fixed+needed+4))
-            self.root.minsize(500,minimum)
-            if self.root.winfo_height()<minimum:
-                self.root.geometry(f'{self.root.winfo_width()}x{minimum}')
+        return
 
-    def schedule_chrome(self):
+    def open_page(self, title, *, scroll=True, immersive=False):
+        if self.layout_mode == 'meeting' or self.preparation.winfo_manager():
+            self.set_layout('compact')
+        page = self.pages.create(title, scroll=scroll, immersive=immersive)
+        page.deiconify()
+        return page
+
+    def open_preparation(self):
+        if self.closing or not self.pages.hide():
+            return
+        if self.layout_mode in ('bar', 'meeting'):
+            self.set_layout('compact')
+        self.workspace.pack_forget()
+        self.detail.pack_forget()
+        self.preparation.pack(fill='both', expand=True)
+        from sentinel_ui import set_page_focus
+        set_page_focus(self, '本场准备')
+
+    def mark_alert(self):
+        """Record unread state without changing visibility or keyboard focus."""
+        if (not self.window_visible() or self.pages.active
+                or self.layout_mode not in ('compact', 'meeting')
+                or (self.layout_mode != 'meeting' and self.preparation.winfo_manager())):
+            self.unread_alert = True
+        self.sync_desktop()
+
+    def show_sources(self, item):
+        if not hasattr(self, 'sources_page'):
+            self.sources_page = self.open_page('原话依据 · 请核对语义', scroll=False)
+            self.sources_text = tk.Text(self.sources_page, wrap='word', font=('Microsoft YaHei UI', 10),
+                                       bg=CARD, fg=TEXT, bd=0, padx=16, pady=12)
+            self.sources_text.pack(fill='both', expand=True)
+        page, text = self.sources_page, self.sources_text
+        text.configure(state='normal')
+        text.delete('1.0', 'end')
+        text.insert('end', item['text']+'\n\n'+'\n\n'.join('“'+q+'”' for q in item['quotes']))
+        text.configure(state='disabled')
+        page.deiconify()
+
+    def show_context_sources(self, section):
+        brief = self.briefing.snapshot()
+        if section == 'current':
+            entries = brief['agreements'] + brief['open_questions']
+            content = brief['situation'] + '\n\n' + '\n'.join(item['text'] for item in entries)
+            quotes = list(dict.fromkeys(q for item in entries for q in item['quotes']))
+        else:
+            content = brief.get(section, '')
+            quotes = brief.get(section + '_quotes', [])
+        self.show_sources(dict(text=(content or '等待有依据的归纳。') +
+                               ('\n\n暂无有效引文，请核对实时转写。' if not quotes else '\n\nAI 归纳，请核对以下原话。'), quotes=quotes))
+
+    def open_knowledge(self):
+        if not self.closing:
+            self.knowledge_window.open()
+
+    def refresh_knowledge(self):
+        self.knowledge_summary.set(self.knowledge_catalog.summary())
+
+    def schedule_chrome(self, *, force=False):
+        if force:
+            self._chrome_size = None
         if self._chrome_job is None:
             self._chrome_job = self.root.after_idle(self.update_chrome)
 
     def update_chrome(self):
         self._chrome_job = None
-        key = (self.root.winfo_width(),self.root.winfo_height(),self.layout_mode,self.root.overrideredirect())
+        if self.layout_mode == 'meeting':
+            return
+        key = (self.root.winfo_width(),self.root.winfo_height(),self.root.winfo_x(),self.root.winfo_y(),self.layout_mode,self.root.overrideredirect(),self.translucent.get(), bool(self.pages.active), self.topmost.get(), self.root.state())
         if key != getattr(self,'_chrome_size',None):
             self._chrome_size = key
             from sentinel_ui import apply_chrome
-            apply_chrome(self.root,self.layout_mode!='detail')
+            apply_chrome(self.root, self.layout_mode != 'detail',
+                         self.translucent.get() and self.layout_mode == 'bar' and not bool(self.pages.active))
+
+    def apply_translucency(self):
+        self.schedule_chrome()
+        try:
+            self.preferences.save(translucent=self.translucent.get())
+        except Exception as exc:
+            self.show_error('窗口偏好未保存：' + str(exc))
 
     def resize_start(self, event):
         self.resize_origin = (event.x_root,event.y_root,self.root.winfo_width(),self.root.winfo_height())
@@ -239,7 +246,8 @@ class SentinelPanel:
         self.root.geometry(f'{max(minimum_width,width+event.x_root-x)}x{max(minimum_height,height+event.y_root-y)}')
 
     def cancel_poll(self, event):
-        if event.widget is self.root:self.stop_logic_services()
+        if event.widget is self.root:
+            self.stop_logic_services()
         if event.widget is self.root and getattr(self,'_fit_job',None):
             self.root.after_cancel(self._fit_job)
             self._fit_job = None
@@ -259,41 +267,67 @@ class SentinelPanel:
 
     def apply_pin(self):
         self.root.attributes("-topmost", self.topmost.get())
+        self.meeting_overlay.update_pin()
+        self.schedule_chrome()
         self.pin_button.configure(text="置顶 ●" if self.topmost.get() else "置顶")
-        for window in (self.settings,self.desktop_settings_window,self.api_window,self.notes.window,
-                       self.logic_window.window if self.logic_window else None):
-            if window is not None and window.winfo_exists():
-                window.attributes('-topmost',self.topmost.get())
         try:
             self.preferences.save(topmost=self.topmost.get())
         except Exception as exc:
             self.show_error("置顶设置未保存：" + str(exc))
 
     def set_layout(self, mode):
-        if mode not in ("bar", "compact", "detail"):
+        if mode not in ("bar", "compact", "detail", "meeting"):
             raise ValueError("未知窗口模式")
+        if hasattr(self, "pages"):
+            if not self.pages.hide():
+                return
+        previous = self.layout_mode
+        if mode == 'meeting':
+            try:
+                self.meeting_overlay.ensure_window()
+            except (ImportError, RuntimeError) as exc:
+                self.show_error('会议浮窗不可用，请安装项目依赖：' + str(exc))
+                return
+            if previous in ('compact', 'detail'):
+                self._workspace_position = (self.root.winfo_x(), self.root.winfo_y())
+            self.layout_mode = mode
+            self.hidden = False
+            self.root.withdraw()
+            self.meeting_overlay.show()
+            return
+        self.meeting_overlay.hide()
         self.layout_mode = mode
         from sentinel_ui import apply_layout
         apply_layout(self, mode)
+        if previous == 'meeting':
+            self.show_window()
 
     def toggle_fold(self):
-        if self.layout_mode == "bar":
-            self.set_layout(self.previous_mode)
-        else:
-            self.previous_mode = self.layout_mode
-            self.set_layout("bar")
+        self.toggle_window()
 
     def toggle_detail(self):
         self.set_layout("compact" if self.layout_mode == "detail" else "detail")
 
     def show_window(self):
         self.hidden = False
+        if self.layout_mode == 'meeting':
+            self.meeting_overlay.show()
+            return
         self.root.overrideredirect(self.layout_mode!='detail')
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
 
+    def window_visible(self):
+        if self.hidden:
+            return False
+        if self.layout_mode == 'meeting':
+            return self.meeting_overlay.is_visible()
+        return self.root.state() == 'normal'
+
     def hide_window(self):
+        if not self.pages.hide():
+            return
         try:
             self.notes.save_draft()
             self.notes.cancel_focus()
@@ -301,22 +335,39 @@ class SentinelPanel:
             self.show_error("隐藏取消，笔记草稿未保存：" + str(exc))
             return
         if not self.desktop or not self.desktop.tray_available:
+            # Taskbar restore changes root.state(), not our tray-hidden flag.
+            self.hidden = False
             self.desktop_notice.set("托盘不可用：已最小化到任务栏，监听状态保持。可从任务栏恢复。")
-            self.root.overrideredirect(False)
-            self.root.iconify()
+            if self.layout_mode == 'meeting':
+                self.meeting_overlay.minimize()
+            else:
+                self.root.overrideredirect(False)
+                self.root.iconify()
             return
         for window in (self.settings, self.desktop_settings_window, self.notes.window, self.api_window,
-                       self.logic_window.window if self.logic_window else None):
+                       self.logic_window.window if self.logic_window else None,
+                       self.knowledge_window.window):
             if window is not None and window.winfo_exists():
                 window.withdraw()
         self.hidden = True
+        self.meeting_overlay.hide()
         self.root.withdraw()
 
     def toggle_window(self):
-        if self.hidden or self.root.state() in ("withdrawn", "iconic"):
+        if not self.window_visible():
             self.show_window()
         else:
             self.hide_window()
+
+    def recover_taskbar_entry(self):
+        """Keep a restore entry when the tray fails, without surfacing the app."""
+        if self.hidden:
+            self.hidden = False
+            if self.layout_mode == 'meeting':
+                self.meeting_overlay.minimize()
+            else:
+                self.root.overrideredirect(False)
+                self.root.iconify()
 
     def toggle_listening(self):
         if self.closing:
@@ -330,15 +381,19 @@ class SentinelPanel:
     def set_phase(self, phase, mic_on=None):
         self.phase = phase
         if mic_on is not None:
+            if mic_on and not self.mic_on:
+                self.mic_started = time.monotonic()
+            elif not mic_on:
+                self.mic_started = None
             self.mic_on = mic_on
         self.phase_text.set(phase)
-        self.phase_label.configure(fg=AMBER if phase == "错误" else TEXT)
+        self.phase_label.configure(fg=ERROR if phase == "错误" else ACCENT)
         self.mic_text.set("● 麦克风开启" if self.mic_on else "● 麦克风关闭")
         self.mic_label.configure(fg="#BC3328" if self.mic_on else MUTED)
         self.sync_desktop()
 
     def sync_desktop(self):
-        status = (self.phase, self.mic_on, self.controller.busy)
+        status = (self.phase + (' · 有新提醒' if self.unread_alert else ''), self.mic_on, self.controller.busy)
         if self.desktop and status != self.status_cache:
             self.desktop.update_status(*status)
             self.status_cache = status
@@ -362,19 +417,21 @@ class SentinelPanel:
         elif kind == "tray_ready":
             if not event["available"]:
                 self.desktop_problems["tray"] = "系统托盘注册失败，关闭时保留任务栏入口。"
+                self.recover_taskbar_entry()
             else:
                 self.desktop_problems.pop("tray", None)
         elif kind == "desktop_error":
             self.desktop_problems["service"] = event["text"]
-            if self.hidden:
-                self.show_window()
+            if self.desktop is None or not self.desktop.tray_available:
+                self.recover_taskbar_entry()
         elif kind == "desktop_closed" and not self.closing:
             self.desktop_problems["service"] = "托盘服务已结束，请保存后退出并重新打开应用。"
-            if self.hidden:
-                self.show_window()
+            self.recover_taskbar_entry()
         elif kind == "api_check_result":
             if hasattr(self, "api_status"):
                 self.api_status.set(event["text"])
+        elif kind == "audio_check_result":
+            self.audio_status.set(event["text"])
         notice = []
         if "hotkeys" in self.desktop_problems:
             notice.append("快捷键未全部生效，请打开设置查看冲突和当前绑定。")
@@ -386,28 +443,44 @@ class SentinelPanel:
             self.desktop_settings_window.deiconify()
             self.desktop_settings_window.lift()
             return
-        window = tk.Toplevel(self.root)
+        window = self.open_page("Sentinel 哨兵 · 设置")
         self.desktop_settings_window = window
-        window.title("Sentinel 哨兵 · 设置")
-        window.transient(self.root)
-        window.attributes('-topmost',self.topmost.get())
-        window.geometry(f"610x460+{self.root.winfo_x()+30}+{self.root.winfo_y()+30}")
-        window.minsize(610,460)
         box = ttk.Frame(window, padding=18)
         box.pack(fill="both", expand=True)
-        ttk.Label(box, text="桌面与悬浮窗", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
-        ttk.Checkbutton(box, text="悬浮窗保持置顶", variable=self.topmost, command=self.apply_pin).pack(anchor="w", pady=12)
+        ttk.Label(box, text="主窗口与托盘", font=("Microsoft YaHei UI", 13, "bold")).pack(anchor="w")
+        ttk.Checkbutton(box, text="保持窗口置顶", variable=self.topmost, command=self.apply_pin).pack(anchor="w", pady=12)
         ttk.Button(box, text="API 配置（Key / 模型 / 连接测试）", command=self.open_api_settings).pack(anchor="w", pady=(0, 8))
         ttk.Button(box, text="说话人角色 / 本人声纹录入、重录、删除", command=self.open_speakers).pack(anchor="w")
-        ttk.Label(box, text="用窗口按钮切换视图；关闭窗口收起到托盘。", wraplength=550).pack(anchor="w", pady=14)
+        ttk.Button(box, text="检查麦克风（不录音）", command=self.check_audio).pack(anchor="w", pady=(10, 4))
+        ttk.Label(box, textvariable=self.audio_status, wraplength=550).pack(anchor="w")
+        ttk.Label(box, text="收起或关闭窗口后，从系统托盘恢复。新提醒只更新未读标记，不自动弹窗。", wraplength=550).pack(anchor="w", pady=14)
         views = ttk.Frame(box)
         views.pack(fill="x")
-        for label, mode in (("主界面", "detail"), ("悬浮卡片", "compact"), ("迷你状态条", "bar")):
+        for label, mode in (("实时转写", "detail"), ("对话提醒", "compact")):
             ttk.Button(views, text=label, command=lambda m=mode:self.set_layout(m)).pack(side="left", padx=(0,8))
         ttk.Label(box, text="托盘红点 / “麦克风开启”表示仍在采集。隐藏窗口不会停止监听。\n私人笔记保存在 private_notes，独立于语音日志，不发送给 LLM。",
                   wraplength=550).pack(anchor="w", pady=16)
         self.desktop_exit_button = ttk.Button(box, text="退出 Sentinel（停止麦克风并保存）", command=self.request_exit)
         self.desktop_exit_button.pack(anchor="w")
+
+    def check_audio(self):
+        if self.closing or (self.audio_check_thread and self.audio_check_thread.is_alive()):
+            return
+        if self.controller.busy:
+            self.audio_status.set("请先停止监听，再检查麦克风。")
+            return
+        device, rate = self.controller.args.device, self.controller.args.sample_rate
+        self.audio_status.set("正在检查麦克风…")
+        def check():
+            try:
+                from sentinel_audio import prepare_microphone
+                microphone = prepare_microphone(device, rate)
+                text = f"麦克风可用：{microphone.name} · {microphone.sample_rate} Hz。检查未录音。"
+            except Exception as exc:
+                text = str(exc)
+            self.desktop_events.put(dict(kind="audio_check_result", text=text))
+        self.audio_check_thread = threading.Thread(target=check, name="sentinel-audio-check", daemon=False)
+        self.audio_check_thread.start()
 
     def open_api_settings(self):
         from sentinel_config import api_settings, DEFAULTS, config_path
@@ -419,13 +492,8 @@ class SentinelPanel:
             values = api_settings()
         except (OSError, ValueError):
             values = dict(DEFAULTS)
-        window = tk.Toplevel(self.root)
+        window = self.open_page("Sentinel · 首次 API 配置")
         self.api_window = window
-        window.title("Sentinel · 首次 API 配置")
-        window.transient(self.root)
-        window.attributes("-topmost", self.topmost.get())
-        window.geometry(f"600x500+{self.root.winfo_x()+30}+{self.root.winfo_y()+30}")
-        window.minsize(600,500)
         box = ttk.Frame(window, padding=18)
         box.pack(fill="both", expand=True)
         ttk.Label(box, text="配置 DeepSeek / OpenAI 兼容接口", font=("Microsoft YaHei UI", 13, "bold")).pack(anchor="w", pady=(0, 10))
@@ -504,16 +572,22 @@ class SentinelPanel:
         self.error_text = ""
         self.error.set("")
         self.current_log = None
+        self.audio_device = ""
         self.goal_entry.configure(state="disabled")
         self.set_phase("正在启动", mic_on=False)
         self.enrolling = enrollment
         self.enrollment_saved = False
         self.turns.clear()
+        self.briefing.reset()
+        self.source_epoch = 0
+        self.unread_alert = False
+        self.recent_alerts.clear()
+        self.advice_canvas.yview_moveto(0)
         self.speaker_roles = {"unknown": "未绑定"}
-        self.state.set("正在启动 · 加载模型")
+        self.state.set("正在启动 · 检查麦克风")
         self.latest.set("正在准备麦克风…")
         self.log_path.set("正在创建会话日志…")
-        self.headline.configure(text="正在启动监听", fg=TEXT)
+        self.headline.configure(text="正在启动监听", fg=ALERT_TEXT)
         self.evidence.configure(text="一旦发现条款、承诺或目标变化，会显示在这里。")
         self.action.configure(text="继续听，等待值得提醒的事件。")
         self.transcript.configure(state="normal")
@@ -534,6 +608,7 @@ class SentinelPanel:
     def show_error(self, text):
         self.error_text = text
         self.error.set("错误：" + text[:400])
+        self.mark_alert()
         self.set_phase("错误")
 
     def callback_error(self, exc_type, exc, tb):
@@ -547,12 +622,8 @@ class SentinelPanel:
             self.settings.deiconify()
             self.settings.lift()
             return
-        window = tk.Toplevel(self.root)
+        window = self.open_page("Sentinel — 本地说话人设置")
         self.settings = window
-        window.title("Sentinel — 本地说话人设置")
-        window.transient(self.root)
-        window.attributes('-topmost',self.topmost.get())
-        window.geometry("700x620")
         box = ttk.Frame(window, padding=16)
         box.pack(fill="both", expand=True)
         ttk.Checkbutton(box, text="下一次监听启用本地说话人区分", variable=self.speakers).pack(anchor="w")
@@ -565,6 +636,11 @@ class SentinelPanel:
         ttk.Button(row, text="录入 / 重录我的声音", command=self.enroll).pack(side="left")
         ttk.Button(row, text="完成录入（至少10秒）", command=self.finish_enrollment).pack(side="left", padx=8)
         ttk.Button(row, text="删除我的声纹", command=self.delete_profile).pack(side="left")
+        self.profile_delete_row = ttk.Frame(box)
+        ttk.Label(self.profile_delete_row, text='确认删除本机保存的本人声纹特征？').pack(side='left')
+        ttk.Button(self.profile_delete_row, text='确认删除', command=lambda:self.delete_profile(confirmed=True)).pack(side='left', padx=8)
+        ttk.Button(self.profile_delete_row, text='取消', command=self.profile_delete_row.pack_forget).pack(side='left')
+        self.profile_delete_row_anchor = row
         ttk.Label(box, text="建议15秒有效语音，可分多段；达到目标自动结束。停止监听可取消未完成录入。重录成功前保留旧档案。", wraplength=650).pack(anchor="w", pady=8)
         ttk.Separator(box).pack(fill="x", pady=8)
         ttk.Label(box, text="本会话匿名 ID：A 为已录入本人，其他人使用 B、C 等；未绑定不代表对方。").pack(anchor="w")
@@ -597,15 +673,18 @@ class SentinelPanel:
         else:
             self.start(enrollment=True)
 
-    def delete_profile(self):
+    def delete_profile(self, confirmed=False):
         from sentinel_speakers import PROFILE
         if self.controller.busy:
             self.show_error("请先停止监听，再删除声纹。")
             return
-        if messagebox.askyesno("删除本地声纹", "删除本机保存的本人声纹特征？", parent=self.settings):
+        if not confirmed:
+            self.profile_delete_row.pack(fill='x', after=self.profile_delete_row_anchor, pady=8)
+        else:
             PROFILE.unlink(missing_ok=True)
             logging.info("Local self voice profile deleted")
             self.profile_status.set("本人声纹已删除")
+            self.profile_delete_row.pack_forget()
 
     def finish_enrollment(self):
         if not self.controller.busy or not self.enrolling:
@@ -632,6 +711,7 @@ class SentinelPanel:
                              reason="manual_overlap_or_unknown" if unknown else "manual_correction")
 
     def render_turns(self):
+        self.turn_view_revision += 1
         self.transcript.configure(state="normal")
         self.transcript.delete("1.0", "end")
         for turn in self.turns.values():
@@ -649,6 +729,19 @@ class SentinelPanel:
 
     def handle(self, evt):
         kind = evt.get("kind")
+        if (kind in ('briefing', 'alert') or str(kind).startswith('llm_')) and evt.get('source_epoch', self.source_epoch) < self.source_epoch:
+            return
+        if kind in ('attribution_update', 'speaker_roles'):
+            self.source_epoch = max(self.source_epoch, evt.get('source_epoch', self.source_epoch))
+            self.headline.configure(text='归属已更新，等待重新分析')
+            self.action.configure(text='原文或角色已更新，等待重新分析。')
+            self.evidence.configure(text='先前归纳已失效，请核对更正后的原话。')
+            self.unread_alert = False
+            self.recent_alerts.clear()
+            self.advice_canvas.yview_moveto(0)
+        if kind == 'final':
+            evt.setdefault('turn_id', max(self.turns, default=0)+1)
+        self.briefing.observe(evt)
         if self.logic_document is not None and not self.enrolling:
             if kind=='final':evt.setdefault('turn_id',max(self.logic_document.turns,default=0)+1)
             self.logic_document.observe(evt)
@@ -697,7 +790,11 @@ class SentinelPanel:
             self.log_path.set("日志已保存：" + evt["log_path"])
         elif stopping:
             return
+        elif kind == "startup":
+            self.state.set(evt["text"])
+            self.latest.set(evt["text"])
         elif kind == "listening":
+            self.audio_device = evt.get("device", "")
             self.set_phase("监听中" if not self.error_text else "错误", mic_on=True)
             self.state.set("● 录入本人声纹中 · 不请求 LLM" if self.enrolling else "● 监听中 · " + self.mode)
             self.headline.configure(text="正在监听，暂无重要变化")
@@ -727,11 +824,14 @@ class SentinelPanel:
         elif kind == "alert":
             self.set_phase("监听中" if not self.error_text else "错误")
             provisional = evt.get("provisional", False)
-            self.headline.configure(text=evt.get("headline", "重要变化"), fg=AMBER if provisional else GREEN)
+            self.headline.configure(text=evt.get("headline", "重要变化"), fg=AMBER if provisional else ALERT_TEXT)
             self.evidence.configure(text=("新转写尚在核实｜" if provisional else "依据｜") + evt.get("summary", ""))
             self.action.configure(text=evt.get("action", "请核对原话。"))
+            self.advice_canvas.yview_moveto(0)
             self.state.set("● 监听中 · 发现关键变化")
-            self.root.bell()
+            self.recent_alerts.append(evt.get('headline', '有新的对话提醒'))
+            self.recent_alerts = self.recent_alerts[-3:]
+            self.mark_alert()
 
     def poll(self):
         try:
@@ -767,7 +867,8 @@ class SentinelPanel:
         # ASR may flush one last confirmed segment during stop. Drain those
         # events before the graph worker takes its final persistent snapshot.
         if self.closing and not self.controller.busy:self.stop_logic_services()
-        if self.closing and not self.controller.busy and not (self.api_check_thread and self.api_check_thread.is_alive()) and not any(s.thread.is_alive() for s in self.logic_workers):
+        checks_busy = any(worker and worker.is_alive() for worker in (self.api_check_thread, self.audio_check_thread))
+        if self.closing and not self.controller.busy and not checks_busy and not any(s.thread.is_alive() for s in self.logic_workers):
             if not self.native_shutdown:
                 self.native_shutdown = True
                 if self.desktop:
@@ -778,7 +879,6 @@ class SentinelPanel:
         self._poll_id = self.root.after(80, self.poll)
 
     def close(self):
-        # Closing a floating window does not terminate microphone capture.
         self.hide_window()
 
     def request_exit(self):
@@ -800,6 +900,8 @@ class SentinelPanel:
 
 
 def run_panel(args, runner):
+    from sentinel_window_effects import enable_dpi_awareness
+    enable_dpi_awareness()
     root = tk.Tk()
     panel = SentinelPanel(root, args, runner)
     panel.enable_native()
@@ -823,3 +925,5 @@ def run_panel(args, runner):
                 panel.desktop.thread.join(timeout=5)
         if panel.api_check_thread:
             panel.api_check_thread.join()
+        if panel.audio_check_thread:
+            panel.audio_check_thread.join()

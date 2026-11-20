@@ -17,6 +17,15 @@ Expand-Archive .downloads\Sentinel-dev-wheels-py312-win64.zip -DestinationPath .
 .\.venv\Scripts\python.exe restore_models.py --verify
 ```
 
+当前工作区的会议浮窗新增 `PySide6-Essentials==6.10.3`（及 `shiboken6==6.10.3`）。旧 Release 的 31 包离线附件不包含它们。解压旧 wheel 包后，先将这两个上游 wheel 补入同一个 wheelhouse，再运行 `setup_dev.cmd`：
+
+```powershell
+py -3.12 -m pip download --only-binary=:all: --dest .downloads\wheelhouse PySide6-Essentials==6.10.3
+.\setup_dev.cmd
+```
+
+已有开发环境可运行 `.\.venv\Scripts\python.exe -m pip install PySide6-Essentials==6.10.3`。Qt 只用于会议展示；音频模型和已有配置无需重装。网络不可用时，在可联网的 Windows x64 / Python 3.12 机器下载这两个 wheel 后带回 wheelhouse。旧安装包仍是旧界面，本轮未构建或发布。
+
 `setup_dev.cmd` 创建本机 `.venv`，从离线 wheel 包按 `requirements-lock.txt` 安装当前环境的版本；没有 `.env` 时才从 `.env.example` 创建，不覆盖已有配置。模型恢复程序按 `models-manifest.json` 校验五个模型文件，拒绝异常 ZIP 路径和不匹配的文件，也不会覆盖已有不同内容的模型。
 
 模型和较大的安装附件采用8 MiB分块上传，避免弱网络连接中断后整包重传。`download_release_assets.py` 默认下载开发需要的模型和离线依赖，验证每块及完整文件 SHA256，自动还原原文件名；已有正确文件会复用。重复运行可继续下载缺失分块。分块清单保存在 `release/assets-manifest.json`，不是用户数据。
@@ -53,6 +62,8 @@ Expand-Archive .downloads\Sentinel-dev-wheels-py312-win64.zip -DestinationPath .
 .\build_windows.cmd
 ```
 
+模块职责、重构边界和当前验证记录见 [ARCHITECTURE.md](ARCHITECTURE.md)。单独验证会话控制器可运行 `python -m unittest test_session -v`，无需 Tk、音频库、模型或 LLM SDK。完整测试需要可用的 Tk 与 Qt GUI 环境（不得全局设置 QT_QPA_PLATFORM=offscreen 来代替原生验收）；私人配置不作为测试前提。
+
 编译安装包另外需要 Inno Setup 6；`build_windows.cmd` 会寻找 `.build_tools\inno\ISCC.exe` 或标准安装目录中的编译器。详见 [PACKAGING.md](PACKAGING.md)。发布附件可运行 `python packaging\prepare_github_release.py` 重新生成，前提是已构建 EXE 并保留原始 ASR 归档。
 
 原有麦克风、联网测试均需显式运行，不属于普通单元测试：
@@ -86,3 +97,11 @@ git push
 已经从此 GitHub 仓库重新克隆源码，在新的 Python 3.12 虚拟环境安装31个依赖并恢复五个运行模型。克隆副本的89项单元测试中87项通过、2项可选原生测试跳过；恢复的 Paraformer 实际解码和 CAM++ 192维特征推理通过。原开发环境没有被替换。
 
 加入分块下载及安全校验后，最终源码的97项测试中95项通过、2项可选原生测试跳过。运行模型已经从本仓库的真实 Release 下载全部30个分块，合并后完整 ZIP 的 SHA256 与原始模型包一致。未把本地新虚拟环境测试称为另一台实体电脑实测。
+
+## 当前 UI 继续开发入口（2026-11-17）
+
+先读 `UI_UPDATE.md` 和 `ARCHITECTURE.md` 的最新章节。默认提醒主页：主区提醒、右侧背景/当前/下一步目标；桌宠已删除，关闭收起到托盘。单窗口工具页由 `sentinel_workspace.py` 统一导航；不要再次为设置/知识库/笔记等入口创建 Toplevel。新增工具的离页保存错误必须取消导航，音频控制仍归会话控制器。
+
+上传前完整回归（2026-11-20）共 183 项，181 项通过、2 项可选原生测试跳过，日志 `.downloads/github-sync-tests.txt`。使用隔离数据和假服务，不请求真实 API；此前实际 ASR 样例验证见 `docs/SPEECH_VERIFICATION.md`。知识库只选择，不检索；本轮尚未重建安装包，现有 Release 的界面仍为旧版。
+
+逻辑图采用 `immersive=True` 内嵌页；导航和监听控制始终可见。一张从上到下的全局分支图，无角色泳道与分页。纯布局在 `sentinel_graph_layout.py`，共享滚动组件为 `sentinel_scroll.py`。继续开发先看 `test_logic_graph.py`、`test_scroll.py` 和 `test_desktop_features.py` 的布局/导航回归。旧 `.downloads/airy-tests.txt` 与旧截图只作历史记录。

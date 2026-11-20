@@ -21,8 +21,10 @@ import unicodedata
 from collections import deque
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 from sentinel_paths import ASR_MODEL_DIR, logs_dir
+from sentinel_audio import prepare_microphone, microphone_stream, MicrophoneUnavailable
 MODEL_DIR = ASR_MODEL_DIR
 STOP = object()
 
@@ -86,7 +88,7 @@ def build_recognizer(model_dir: Path, threads: int, silence: float):
     names = ["encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt"]
     missing = [n for n in names if not (model_dir / n).exists()]
     if missing:
-        raise FileNotFoundError(f"缺少模型文件 {missing}；目录：{model_dir.resolve()}")
+        raise FileNotFoundError(f"缺少模型文件 {missing}；目录：{model_dir.resolve()}。请按 DEVELOPMENT.md 恢复语音模型后重试。")
     return sherpa_onnx.OnlineRecognizer.from_paraformer(
         tokens=str(model_dir / "tokens.txt"),
         encoder=str(model_dir / "encoder.int8.onnx"),
@@ -111,7 +113,9 @@ def run(args, on_event=None, stop_event=None):
     stop_event = stop_event or threading.Event()
 
     output_dir = Path(getattr(args, "log_dir", None) or logs_dir())
-    log_path = output_dir / ("session-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".jsonl")
+    # Clock resolution can be coarser than the filename's microsecond format.
+    log_path = output_dir / ("session-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+                             + "-" + uuid4().hex + ".jsonl")
     logger = Log(log_path)
     observer = None
     speaker = None
@@ -130,11 +134,19 @@ def run(args, on_event=None, stop_event=None):
     revisions = 0
     decode_total = 0.0
     audio_total = 0.0
+    capture_started = False
     drops = [0]
     status = [0]
     try:
         from sentinel_speakers import SpeakerWorker, TranscriptLedger
-        ledger = TranscriptLedger(logger, emit)
+        def transcript_event(**event):
+            # Invalidate before exposing a correction to the UI. Old in-flight
+            # requests must not resurrect claims based on superseded roles.
+            if event.get('kind') in ('attribution_update', 'speaker_roles') and observer:
+                event['source_epoch'] = observer.invalidate_context()
+            emit(**event)
+
+        ledger = TranscriptLedger(logger, transcript_event)
         logger.write("session_start", model=str(args.model_dir), llm=bool(args.llm and not enrollment),
                      sample_rate=args.sample_rate, scene=args.scene, enrollment=enrollment,
                      asr_enabled=not enrollment, audio_timestamp_clock="device_adc_or_capture_frame_counter")
@@ -144,9 +156,15 @@ def run(args, on_event=None, stop_event=None):
         if stop_event.is_set():
             return
         import numpy as np
-        import sounddevice as sd
         import psutil
 
+        emit(kind="startup", text="正在检查麦克风…")
+        microphone = prepare_microphone(args.device, args.sample_rate)
+        logger.write("audio_input", device=microphone.device, name=microphone.name,
+                     sample_rate=microphone.sample_rate)
+        if stop_event.is_set():
+            return
+        emit(kind="startup", text="正在加载本地语音模型…")
         recognizer = None if enrollment else build_recognizer(args.model_dir, args.threads, args.endpoint_silence)
         # Model loading cannot be interrupted; honour Stop before opening devices/API.
         if stop_event.is_set():
@@ -168,8 +186,7 @@ def run(args, on_event=None, stop_event=None):
         stream = recognizer.create_stream() if recognizer else None
         process = psutil.Process()
         process.cpu_percent(None)
-        sample_rate = args.sample_rate
-        frames_per_block = int(sample_rate * 0.1)
+        sample_rate = microphone.sample_rate
         audio_q = queue.Queue(maxsize=32)
         drops = [0]
         status = [0]
@@ -214,7 +231,7 @@ def run(args, on_event=None, stop_event=None):
                     if kind == "role" and speaker and command["speaker_id"] in ledger.roles:
                         ledger.role(command["speaker_id"], command["role"])
                         speaker.commands.put(command)
-                        emit(kind="speaker_roles", speakers=dict(ledger.roles))
+                        transcript_event(kind="speaker_roles", speakers=dict(ledger.roles))
                         changed = True
                     elif kind == "correct" and speaker:
                         name = command["speaker_id"]
@@ -252,11 +269,12 @@ def run(args, on_event=None, stop_event=None):
         print("[模型] ", args.model_dir.resolve())
         print("[日志] ", log_path.resolve())
         print("[控制] Ctrl+C 结束；可使用 --duration 180 自动测试三分钟\n")
-        with sd.InputStream(device=args.device, samplerate=sample_rate, channels=1,
-                            dtype="float32", blocksize=frames_per_block, callback=callback):
+        with microphone_stream(microphone, callback=callback) as capture:
+            capture_started = True
             if stop_event.is_set():
                 return
-            emit(kind="listening", llm=bool(observer), model=str(args.model_dir))
+            emit(kind="listening", llm=bool(observer), model=str(args.model_dir),
+                 device=microphone.name, sample_rate=sample_rate)
             while True:
                 drain_speakers()
                 now = time.perf_counter()
@@ -265,6 +283,8 @@ def run(args, on_event=None, stop_event=None):
                 try:
                     samples, captured_at, block_start = audio_q.get(timeout=0.1)
                 except queue.Empty:
+                    if getattr(capture, "active", True) is False:
+                        raise MicrophoneUnavailable("麦克风已断开或停止输入。请检查连接后再次开始监听。")
                     continue
                 audio_total += len(samples) / sample_rate
                 audio_end = block_start + len(samples) / sample_rate
@@ -369,7 +389,7 @@ def run(args, on_event=None, stop_event=None):
                              start_s=locals().get("utterance_start"), end_s=locals().get("audio_end"), confidence=0.)
             final_text = "".join(finals)
             output_dir.mkdir(parents=True, exist_ok=True)
-            if not enrollment:
+            if not enrollment and capture_started:
                 (output_dir / "last-transcript.txt").write_text("\n".join(finals), encoding="utf-8")
             summary = {
                 "duration_s": round(time.perf_counter() - session_start, 2),
@@ -409,6 +429,7 @@ def run(args, on_event=None, stop_event=None):
 def create_parser():
     parser = argparse.ArgumentParser(description="Sentinel 实时ASR速度/稳定性测试 + LLM持续观察")
     parser.add_argument("--list-devices", action="store_true")
+    parser.add_argument("--check-audio", action="store_true", help="检查麦克风与采样率，不录音、不加载模型或请求 API")
     parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
     parser.add_argument("--log-dir", type=Path, default=None, help="日志目录；默认当前用户 LocalAppData/Sentinel/logs")
     parser.add_argument("--device", type=int, default=None, help="输入设备索引")
@@ -434,6 +455,14 @@ def main():
     args = create_parser().parse_args()
     if args.list_devices:
         list_devices()
+        return
+    if args.check_audio:
+        try:
+            microphone = prepare_microphone(args.device, args.sample_rate)
+        except (MicrophoneUnavailable, ValueError) as exc:
+            print(str(exc))
+            raise SystemExit(1)
+        print(f"麦克风可用：{microphone.name} · {microphone.sample_rate} Hz · 单声道")
         return
     if args.check_llm:
         check_llm_connection()
